@@ -1,21 +1,27 @@
 // ─── A&A Quinn Roofing Solutions — Company Constants ─────────────────────────
 //
-// LOGO: Drop your logo image into assets/company-logo.png
-// The PDF will automatically embed it when the file is present.
+// LOGO: Save the company logo JPEG to assets/company-logo.jpg
+// The PDF will automatically embed it.
 
 export const COMPANY = {
   name: 'A&A Quinn Roofing Solutions Limited',
   shortName: 'A&A Quinn Roofing Solutions',
+  nameLine1: 'A&A Quinn Roofing',
+  nameLine2: 'Solutions Ltd.',
   services: 'Copper Roofing | Zinc Roofing | PVC Roofing | Aluminium Roofing | Torch-On Systems',
   address: 'Newcastle, Crossabeg, Co. Wexford',
+  addressLines: ['Newcastle', 'Crossabeg', 'Wexford'],
+  eircode: 'W35 Y567',
   tel: '053 9128888',
-  mobile: 'info@quinnroofing.ie',       // used as "M:" label in original
+  telCompact: '0539128888',
   email: 'info@quinnroofing.ie',
+  website: 'www.quinnroofing.ie',
   c2Number: '425339904',
   vatNumber: 'IE9736299',
   vatRate: 0.135,                        // 13.5% — do not change
   signatoryName: 'Anthony Quinn',
   signatoryTitle: 'Managing Director',
+  defaultPersonnel: 'Anthony Quinn - 086-8122692',
   depositPercent: 40,
   quoteValidDays: 30,
 };

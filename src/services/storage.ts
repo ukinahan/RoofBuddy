@@ -3,12 +3,33 @@ import { Inspection } from '../types';
 
 const INSPECTIONS_KEY = '@roof_inspector:inspections';
 
+/** Fill in missing fields for inspections saved before new fields were added. */
+function normalizeInspection(i: Inspection): Inspection {
+  return {
+    ref: '',
+    conditions: '',
+    scopeOfWorks: 'Roof Survey',
+    overview: '',
+    reportNo: '01',
+    conclusion: '',
+    costOfRepairs: 0,
+    ...i,
+    quote: i.quote ?? { lineItems: [] },
+    photos: (i.photos ?? []).map((p) => ({
+      annotations: [],
+      drawings: [],
+      ...p,
+    })),
+  };
+}
+
 /** Load all inspections from device storage. Returns [] if nothing saved yet. */
 export async function loadInspections(): Promise<Inspection[]> {
   try {
     const raw = await AsyncStorage.getItem(INSPECTIONS_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as Inspection[];
+    const parsed = JSON.parse(raw) as Inspection[];
+    return parsed.map(normalizeInspection);
   } catch {
     return [];
   }

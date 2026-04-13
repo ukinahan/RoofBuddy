@@ -66,6 +66,22 @@ export interface Inspection {
   /** General notes about the entire inspection */
   notes: string;
   inspectorName: string;
+
+  // ── Project Overview fields (appear on Page 2 of the report) ─────────────
+  /** Weather conditions during the survey e.g. "Cloudy and Dry" */
+  conditions: string;
+  /** Scope of works e.g. "Roof Survey" */
+  scopeOfWorks: string;
+  /** Brief overview / reason for survey */
+  overview: string;
+  /** Report reference number e.g. "01" */
+  reportNo: string;
+
+  // ── Conclusion (last page of the report) ──────────────────────────────────
+  conclusion: string;
+  /** Cost of repairs ex-VAT */
+  costOfRepairs: number;
+
   photos: InspectionPhoto[];
   quote: Quote;
   createdAt: string;

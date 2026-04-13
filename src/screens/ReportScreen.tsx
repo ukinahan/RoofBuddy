@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -13,7 +14,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, Inspection } from '../types';
-import { getInspection } from '../services/storage';
+import { getInspection, updateInspection } from '../services/storage';
 import { generatePDF, sharePDF, emailReport } from '../services/report';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Report'>;
@@ -29,22 +30,59 @@ export default function ReportScreen() {
   const [generating, setGenerating] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
 
+  // ── Report detail fields ────────────────────────────────────────────────
+  const [conditions, setConditions] = useState('');
+  const [scopeOfWorks, setScopeOfWorks] = useState('Roof Survey');
+  const [overview, setOverview] = useState('');
+  const [reportNo, setReportNo] = useState('01');
+  const [conclusion, setConclusion] = useState('');
+  const [costOfRepairs, setCostOfRepairs] = useState('');
+
   useFocusEffect(
     useCallback(() => {
       (async () => {
         const data = await getInspection(inspectionId);
         setInspection(data);
+        if (data) {
+          setConditions(data.conditions || '');
+          setScopeOfWorks(data.scopeOfWorks || 'Roof Survey');
+          setOverview(data.overview || '');
+          setReportNo(data.reportNo || '01');
+          setConclusion(data.conclusion || '');
+          setCostOfRepairs(data.costOfRepairs ? data.costOfRepairs.toString() : '');
+        }
         setLoading(false);
       })();
     }, [inspectionId])
   );
+
+  const buildUpdatedInspection = (): Inspection => ({
+    ...inspection!,
+    conditions: conditions.trim(),
+    scopeOfWorks: scopeOfWorks.trim() || 'Roof Survey',
+    overview: overview.trim(),
+    reportNo: reportNo.trim() || '01',
+    conclusion: conclusion.trim(),
+    costOfRepairs: parseFloat(costOfRepairs) || 0,
+  });
+
+  const handleSaveDetails = async () => {
+    if (!inspection) return;
+    const updated = buildUpdatedInspection();
+    await updateInspection(updated);
+    setInspection(updated);
+    Alert.alert('Saved', 'Report details have been saved.');
+  };
 
   const handleGenerate = async () => {
     if (!inspection) return;
     setGenerating(true);
     setPdfUri(null);
     try {
-      const uri = await generatePDF(inspection);
+      const updated = buildUpdatedInspection();
+      await updateInspection(updated);
+      setInspection(updated);
+      const uri = await generatePDF(updated);
       setPdfUri(uri);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not generate PDF.';
@@ -96,6 +134,72 @@ export default function ReportScreen() {
         <View style={styles.infoRow}><Text style={styles.infoLabel}>Address</Text><Text style={styles.infoValue}>{inspection.address}</Text></View>
         <View style={styles.infoRow}><Text style={styles.infoLabel}>Date</Text><Text style={styles.infoValue}>{new Date(inspection.date).toLocaleDateString()}</Text></View>
         <View style={styles.infoRow}><Text style={styles.infoLabel}>Photos</Text><Text style={styles.infoValue}>{inspection.photos.length}</Text></View>
+      </View>
+
+      {/* Report details card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Report Details</Text>
+
+        <Text style={styles.fieldLabel}>Conditions</Text>
+        <TextInput
+          style={styles.detailInput}
+          placeholder="e.g. Cloudy and Dry"
+          value={conditions}
+          onChangeText={setConditions}
+          autoCapitalize="sentences"
+        />
+
+        <Text style={styles.fieldLabel}>Scope of Works</Text>
+        <TextInput
+          style={styles.detailInput}
+          placeholder="e.g. Roof Survey"
+          value={scopeOfWorks}
+          onChangeText={setScopeOfWorks}
+          autoCapitalize="sentences"
+        />
+
+        <Text style={styles.fieldLabel}>Overview / Reason for Survey</Text>
+        <TextInput
+          style={[styles.detailInput, styles.detailMultiline]}
+          placeholder="e.g. Investigate and carry out a survey of the roof following reported leaks"
+          value={overview}
+          onChangeText={setOverview}
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
+        />
+
+        <Text style={styles.fieldLabel}>Report No</Text>
+        <TextInput
+          style={styles.detailInput}
+          placeholder="01"
+          value={reportNo}
+          onChangeText={setReportNo}
+        />
+
+        <Text style={styles.fieldLabel}>Conclusion</Text>
+        <TextInput
+          style={[styles.detailInput, styles.detailMultiline]}
+          placeholder="Summary of findings and recommended works…"
+          value={conclusion}
+          onChangeText={setConclusion}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+
+        <Text style={styles.fieldLabel}>Cost of Repairs ex-VAT (€)</Text>
+        <TextInput
+          style={styles.detailInput}
+          placeholder="e.g. 6300"
+          value={costOfRepairs}
+          onChangeText={setCostOfRepairs}
+          keyboardType="decimal-pad"
+        />
+
+        <TouchableOpacity style={styles.saveDetailsBtn} onPress={handleSaveDetails} activeOpacity={0.85}>
+          <Text style={styles.saveDetailsBtnText}>Save Details</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Concern counts */}
@@ -227,4 +331,24 @@ const styles = StyleSheet.create({
   },
   shareIcon: { fontSize: 22, marginBottom: 2 },
   shareBtnText: { color: 'white', fontSize: 12, fontWeight: '700' },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 0.5, marginTop: 10, marginBottom: 4 },
+  detailInput: {
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: '#222',
+  },
+  detailMultiline: { minHeight: 80, paddingTop: 9 },
+  saveDetailsBtn: {
+    marginTop: 14,
+    backgroundColor: '#2e5e9e',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveDetailsBtnText: { color: 'white', fontSize: 13, fontWeight: '700' },
 });

@@ -25,6 +25,7 @@ export default function NewInspectionScreen() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [address, setAddress] = useState('');
   const [ref, setRef] = useState('');
+  const [scopeOfWorks, setScopeOfWorks] = useState('Roof Survey');
   const [inspectorName, setInspectorName] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -45,9 +46,15 @@ export default function NewInspectionScreen() {
       customerEmail: customerEmail.trim(),
       address: address.trim(),
       ref: ref.trim(),
-      inspectorName: inspectorName.trim() || 'Inspector',
+      inspectorName: inspectorName.trim() || 'Anthony Quinn - 086-8122692',
       date: now.split('T')[0],
       notes: notes.trim(),
+      conditions: '',
+      scopeOfWorks: scopeOfWorks.trim() || 'Roof Survey',
+      overview: '',
+      reportNo: '01',
+      conclusion: '',
+      costOfRepairs: 0,
       photos: [],
       quote: { lineItems: [] },
       createdAt: now,
@@ -97,6 +104,15 @@ export default function NewInspectionScreen() {
           placeholder="Ref: (e.g. Castlemartyr Golf Clubhouse)"
           value={ref}
           onChangeText={setRef}
+          autoCapitalize="sentences"
+          returnKeyType="next"
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Scope of Works (e.g. Roof Survey)"
+          value={scopeOfWorks}
+          onChangeText={setScopeOfWorks}
           autoCapitalize="sentences"
           returnKeyType="next"
         />
