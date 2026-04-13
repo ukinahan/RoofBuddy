@@ -148,22 +148,18 @@ export default function ReportScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Share / Email buttons — only appear after PDF is generated */}
+      {/* Share / Send buttons — only appear after PDF is generated */}
       {pdfUri && (
         <View style={styles.shareRow}>
           <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-            <Text style={styles.shareBtnText}>📤  Share / Save</Text>
+            <Text style={styles.shareIcon}>📤</Text>
+            <Text style={styles.shareBtnText}>Share / Save</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.emailBtn} onPress={handleEmail} activeOpacity={0.85}>
-            <Text style={styles.shareBtnText}>✉️  Send to Customer</Text>
+            <Text style={styles.shareIcon}>✉️</Text>
+            <Text style={styles.shareBtnText}>Send to Customer</Text>
           </TouchableOpacity>
         </View>
-      )}
-
-      {pdfUri && (
-        <Text style={styles.pdfNote}>
-          PDF saved to temporary storage. Share or email it before closing the app.
-        </Text>
       )}
     </ScrollView>
   );
@@ -218,17 +214,17 @@ const styles = StyleSheet.create({
   shareBtn: {
     flex: 1,
     backgroundColor: '#1a3c5e',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
   emailBtn: {
     flex: 1,
     backgroundColor: '#c0392b',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
-  shareBtnText: { color: 'white', fontSize: 13, fontWeight: '700' },
-  pdfNote: { fontSize: 12, color: '#888', textAlign: 'center', paddingHorizontal: 20 },
+  shareIcon: { fontSize: 22, marginBottom: 2 },
+  shareBtnText: { color: 'white', fontSize: 12, fontWeight: '700' },
 });

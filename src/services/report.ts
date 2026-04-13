@@ -293,16 +293,23 @@ export async function sharePDF(pdfUri: string): Promise<void> {
   });
 }
 
-/** Pre-fills the iOS/Android mail composer with the inspection PDF attached. */
+/** Send the inspection PDF — uses Mail if available, falls back to share sheet (Outlook, Gmail, AirDrop, etc). */
 export async function emailReport(inspection: Inspection, pdfUri: string): Promise<void> {
   const available = await MailComposer.isAvailableAsync();
-  if (!available) throw new Error('Mail is not set up on this device. Try using Share instead.');
-  await MailComposer.composeAsync({
-    recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
-    subject: `Roof Inspection Report — ${inspection.address}`,
-    body: `Dear ${inspection.customerName},\n\nPlease find your roof inspection report attached.\n\nIf you have any questions, don't hesitate to reach out.\n\nBest regards,\n${inspection.inspectorName}`,
-    attachments: [pdfUri],
-  });
+  if (available) {
+    await MailComposer.composeAsync({
+      recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
+      subject: `Roof Inspection Report — ${inspection.address}`,
+      body: `Dear ${inspection.customerName},\n\nPlease find your roof inspection report attached.\n\nIf you have any questions, don't hesitate to reach out.\n\nBest regards,\n${inspection.inspectorName}`,
+      attachments: [pdfUri],
+    });
+  } else {
+    await Sharing.shareAsync(pdfUri, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Send Report to ${inspection.customerName}`,
+      UTI: 'com.adobe.pdf',
+    });
+  }
 }
 
 // ─── Quote PDF ───────────────────────────────────────────────────────────────
@@ -512,14 +519,21 @@ export async function shareQuotePDF(pdfUri: string): Promise<void> {
   });
 }
 
-/** Email the quote PDF to the customer. */
+/** Send the quote PDF — uses Mail if available, falls back to share sheet (Outlook, Gmail, AirDrop, etc). */
 export async function emailQuote(inspection: Inspection, pdfUri: string): Promise<void> {
   const available = await MailComposer.isAvailableAsync();
-  if (!available) throw new Error('Mail is not set up on this device. Try using Share instead.');
-  await MailComposer.composeAsync({
-    recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
-    subject: `Quotation — ${inspection.ref || inspection.address}`,
-    body: `Dear ${inspection.customerName},\n\nPlease find attached our quotation for the works on ${inspection.ref || inspection.address}.\n\nIf you have any queries please don't hesitate to contact us.\n\nYours sincerely,\n${COMPANY.signatoryName}\n${COMPANY.signatoryTitle}\n${COMPANY.shortName}\nTel: ${COMPANY.tel}\nEmail: ${COMPANY.email}`,
-    attachments: [pdfUri],
-  });
+  if (available) {
+    await MailComposer.composeAsync({
+      recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
+      subject: `Quotation — ${inspection.ref || inspection.address}`,
+      body: `Dear ${inspection.customerName},\n\nPlease find attached our quotation for the works on ${inspection.ref || inspection.address}.\n\nIf you have any queries please don't hesitate to contact us.\n\nYours sincerely,\n${COMPANY.signatoryName}\n${COMPANY.signatoryTitle}\n${COMPANY.shortName}\nTel: ${COMPANY.tel}\nEmail: ${COMPANY.email}`,
+      attachments: [pdfUri],
+    });
+  } else {
+    await Sharing.shareAsync(pdfUri, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Send Quote to ${inspection.customerName}`,
+      UTI: 'com.adobe.pdf',
+    });
+  }
 }

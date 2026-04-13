@@ -219,14 +219,16 @@ export default function QuoteScreen() {
           }
         </TouchableOpacity>
 
-        {/* Share / Email */}
+        {/* Share / Send */}
         {pdfUri && (
           <View style={styles.shareRow}>
             <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-              <Text style={styles.shareBtnText}>📤  Share / Save</Text>
+              <Text style={styles.shareIcon}>📤</Text>
+              <Text style={styles.shareBtnText}>Share / Save</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.emailBtn} onPress={handleEmail} activeOpacity={0.85}>
-              <Text style={styles.shareBtnText}>✉️  Email to Customer</Text>
+              <Text style={styles.shareIcon}>✉️</Text>
+              <Text style={styles.shareBtnText}>Send to Customer</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -314,9 +316,10 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   generateBtnText: { color: 'white', fontSize: 15, fontWeight: '700' },
   shareRow: { flexDirection: 'row', gap: 10 },
-  shareBtn: { flex: 1, backgroundColor: '#1a3c5e', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  emailBtn: { flex: 1, backgroundColor: '#c0392b', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  shareBtnText: { color: 'white', fontSize: 13, fontWeight: '700' },
+  shareBtn: { flex: 1, backgroundColor: '#1a3c5e', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  emailBtn: { flex: 1, backgroundColor: '#c0392b', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  shareIcon: { fontSize: 22, marginBottom: 2 },
+  shareBtnText: { color: 'white', fontSize: 12, fontWeight: '700' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },

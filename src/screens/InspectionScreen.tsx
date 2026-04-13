@@ -133,28 +133,30 @@ export default function InspectionScreen() {
 
       {/* Bottom Buttons */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.btnCamera} onPress={handleCamera} activeOpacity={0.85}>
-          <Text style={styles.btnText}>📷  Camera</Text>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleCamera} activeOpacity={0.85}>
+          <Text style={styles.iconEmoji}>📷</Text>
+          <Text style={styles.iconLabel}>Camera</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnLibrary} onPress={handleLibrary} activeOpacity={0.85}>
-          <Text style={styles.btnText}>🖼  Library</Text>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleLibrary} activeOpacity={0.85}>
+          <Text style={styles.iconEmoji}>🖼</Text>
+          <Text style={styles.iconLabel}>Library</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.btnQuote}
+          style={styles.iconBtn}
           onPress={() => navigation.navigate('Quote', { inspectionId })}
           activeOpacity={0.85}
         >
-          <Text style={styles.btnText}>💶  Quote</Text>
+          <Text style={styles.iconEmoji}>💶</Text>
+          <Text style={styles.iconLabel}>Quote</Text>
         </TouchableOpacity>
-        {inspection.photos.length > 0 && (
-          <TouchableOpacity
-            style={styles.btnReport}
-            onPress={() => navigation.navigate('Report', { inspectionId })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnText}>📄  Report</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.iconBtn, inspection.photos.length === 0 && styles.iconBtnDisabled]}
+          onPress={() => inspection.photos.length > 0 && navigation.navigate('Report', { inspectionId })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.iconEmoji}>📋</Text>
+          <Text style={styles.iconLabel}>Report</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -188,33 +190,12 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 10,
   },
-  btnCamera: {
+  iconBtn: {
     flex: 1,
-    backgroundColor: '#1a3c5e',
-    paddingVertical: 13,
-    borderRadius: 10,
     alignItems: 'center',
+    paddingVertical: 6,
   },
-  btnLibrary: {
-    flex: 1,
-    backgroundColor: '#2e6da4',
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  btnQuote: {
-    flex: 1,
-    backgroundColor: '#8b5e2e',
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  btnReport: {
-    flex: 1,
-    backgroundColor: '#2e8b57',
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  btnText: { color: 'white', fontSize: 14, fontWeight: '600' },
+  iconBtnDisabled: { opacity: 0.35 },
+  iconEmoji: { fontSize: 26 },
+  iconLabel: { fontSize: 10, color: '#1a3c5e', fontWeight: '600', marginTop: 2 },
 });
