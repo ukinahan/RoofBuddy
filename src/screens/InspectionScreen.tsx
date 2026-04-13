@@ -102,6 +102,7 @@ export default function InspectionScreen() {
       {/* Info Banner */}
       <View style={styles.banner}>
         <Text style={styles.bannerName}>{inspection.customerName}</Text>
+        {inspection.ref ? <Text style={styles.bannerRef}>Ref: {inspection.ref}</Text> : null}
         <Text style={styles.bannerAddress}>{inspection.address}</Text>
         <Text style={styles.bannerDate}>{new Date(inspection.date).toLocaleDateString()}</Text>
       </View>
@@ -138,6 +139,13 @@ export default function InspectionScreen() {
         <TouchableOpacity style={styles.btnLibrary} onPress={handleLibrary} activeOpacity={0.85}>
           <Text style={styles.btnText}>🖼  Library</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.btnQuote}
+          onPress={() => navigation.navigate('Quote', { inspectionId })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.btnText}>💶  Quote</Text>
+        </TouchableOpacity>
         {inspection.photos.length > 0 && (
           <TouchableOpacity
             style={styles.btnReport}
@@ -161,6 +169,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   bannerName: { color: 'white', fontSize: 16, fontWeight: '700' },
+  bannerRef: { color: '#f0c060', fontSize: 13, marginTop: 2, fontWeight: '600' },
   bannerAddress: { color: '#b0c8e0', fontSize: 13, marginTop: 2 },
   bannerDate: { color: '#7aafd4', fontSize: 12, marginTop: 2 },
   grid: { padding: 8, paddingBottom: 110 },
@@ -189,6 +198,13 @@ const styles = StyleSheet.create({
   btnLibrary: {
     flex: 1,
     backgroundColor: '#2e6da4',
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  btnQuote: {
+    flex: 1,
+    backgroundColor: '#8b5e2e',
     paddingVertical: 13,
     borderRadius: 10,
     alignItems: 'center',

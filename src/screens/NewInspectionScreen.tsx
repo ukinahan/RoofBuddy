@@ -24,6 +24,7 @@ export default function NewInspectionScreen() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [address, setAddress] = useState('');
+  const [ref, setRef] = useState('');
   const [inspectorName, setInspectorName] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -43,17 +44,19 @@ export default function NewInspectionScreen() {
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim(),
       address: address.trim(),
+      ref: ref.trim(),
       inspectorName: inspectorName.trim() || 'Inspector',
       date: now.split('T')[0],
       notes: notes.trim(),
       photos: [],
+      quote: { lineItems: [] },
       createdAt: now,
       updatedAt: now,
     };
 
     await addInspection(inspection);
     setSaving(false);
-    navigation.replace('Camera', { inspectionId: inspection.id });
+    navigation.replace('Inspection', { inspectionId: inspection.id });
   };
 
   return (
@@ -87,6 +90,14 @@ export default function NewInspectionScreen() {
           value={address}
           onChangeText={setAddress}
           autoCapitalize="words"
+          returnKeyType="next"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Ref: (e.g. Castlemartyr Golf Clubhouse)"
+          value={ref}
+          onChangeText={setRef}
+          autoCapitalize="sentences"
           returnKeyType="next"
         />
 

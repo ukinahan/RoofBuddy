@@ -11,6 +11,7 @@ import InspectionScreen from './src/screens/InspectionScreen';
 import CameraScreen from './src/screens/CameraScreen';
 import PhotoDetailScreen from './src/screens/PhotoDetailScreen';
 import ReportScreen from './src/screens/ReportScreen';
+import QuoteScreen from './src/screens/QuoteScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -56,6 +57,11 @@ export default function App() {
           name="Report"
           component={ReportScreen}
           options={{ title: 'Generate Report' }}
+        />
+        <Stack.Screen
+          name="Quote"
+          component={QuoteScreen}
+          options={{ title: 'Customer Quote' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

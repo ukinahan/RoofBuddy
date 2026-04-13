@@ -1,5 +1,7 @@
 /**
- * Generates a professional PDF report from an Inspection and emails / shares it.
+ * Generates professional PDF documents from an Inspection:
+ *   1. Inspection report (photos + annotations)
+ *   2. Customer quotation (cover letter + quote table + T&Cs)
  */
 
 import * as Print from 'expo-print';
@@ -7,6 +9,7 @@ import * as Sharing from 'expo-sharing';
 import * as MailComposer from 'expo-mail-composer';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Inspection, InspectionPhoto, Annotation } from '../types';
+import { COMPANY, TERMS_AND_CONDITIONS } from './company';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -277,6 +280,248 @@ export async function generatePDF(inspection: Inspection): Promise<string> {
   const html = await buildHtml(inspection);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   return uri;
+}
+
+/** Opens the native share sheet so the user can save / forward the inspection PDF. */
+export async function sharePDF(pdfUri: string): Promise<void> {
+  const canShare = await Sharing.isAvailableAsync();
+  if (!canShare) throw new Error('Sharing is not available on this device.');
+  await Sharing.shareAsync(pdfUri, {
+    mimeType: 'application/pdf',
+    dialogTitle: 'Share Inspection Report',
+    UTI: 'com.adobe.pdf',
+  });
+}
+
+/** Pre-fills the iOS/Android mail composer with the inspection PDF attached. */
+export async function emailReport(inspection: Inspection, pdfUri: string): Promise<void> {
+  const available = await MailComposer.isAvailableAsync();
+  if (!available) throw new Error('Mail is not set up on this device. Try using Share instead.');
+  await MailComposer.composeAsync({
+    recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
+    subject: `Roof Inspection Report — ${inspection.address}`,
+    body: `Dear ${inspection.customerName},\n\nPlease find your roof inspection report attached.\n\nIf you have any questions, don't hesitate to reach out.\n\nBest regards,\n${inspection.inspectorName}`,
+    attachments: [pdfUri],
+  });
+}
+
+// ─── Quote PDF ───────────────────────────────────────────────────────────────
+
+const formatEuro = (n: number) =>
+  '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+function buildQuoteHtml(inspection: Inspection): string {
+  const items = inspection.quote?.lineItems ?? [];
+  const subTotal = items.reduce((s, i) => s + i.totalPrice, 0);
+  const vat = subTotal * COMPANY.vatRate;
+  const grandTotal = subTotal + vat;
+
+  const dateFormatted = new Date(inspection.date).toLocaleDateString('en-IE', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  // ── Page 1: Cover letter ─────────────────────────────────────────────────
+  const coverPage = `
+  <div class="page cover-page">
+    <!-- Company header -->
+    <div class="company-header">
+      <div class="logo-block">
+        <div class="logo-diamond">
+          <span class="logo-text-aa">A&amp;A</span>
+          <span class="logo-text-quinn">QUINN</span>
+        </div>
+        <div class="logo-name">
+          <div class="logo-name-main">ROOFING SOLUTIONS</div>
+          <div class="logo-name-sub">LIMITED</div>
+        </div>
+      </div>
+      <div class="company-services">${escapeHtml(COMPANY.services)}</div>
+      <div class="company-contact">${escapeHtml(COMPANY.address)} &nbsp;&nbsp; Tel: ${COMPANY.tel} &nbsp;&nbsp; M: ${COMPANY.mobile}</div>
+    </div>
+
+    <h1 class="quotation-title">QUOTATION</h1>
+
+    <p class="letter-date">${dateFormatted}</p>
+
+    <div class="letter-address">
+      <p>${escapeHtml(inspection.customerName)}</p>
+      <p>${escapeHtml(inspection.address)}</p>
+    </div>
+
+    <p class="letter-ref"><strong>Ref: ${escapeHtml(inspection.ref || '')}</strong></p>
+
+    <p class="letter-salutation">Dear ${escapeHtml(inspection.customerName)}</p>
+
+    <p class="letter-body">Please now find attached our quotation for the works on ${escapeHtml(inspection.ref || 'the above property')}.</p>
+    <p class="letter-body">If you have any queries please don't hesitate to contact us.</p>
+
+    <p class="letter-sign">Yours sincerely<br/>${escapeHtml(COMPANY.shortName)}</p>
+
+    <div class="signature-block">
+      <div class="signature-line"></div>
+      <p class="signatory-name">${escapeHtml(COMPANY.signatoryName)}</p>
+      <p class="signatory-title">${escapeHtml(COMPANY.signatoryTitle)}</p>
+    </div>
+  </div>`;
+
+  // ── Page 2: Quote table + T&Cs ───────────────────────────────────────────
+  const lineRows = items.map((item) => `
+    <tr>
+      <td class="qty-cell">${escapeHtml(item.qty)}</td>
+      <td class="desc-cell">${escapeHtml(item.description).replace(/\n/g, '<br/>')}</td>
+      <td class="price-cell">${item.totalPrice > 0 ? formatEuro(item.totalPrice) : ''}</td>
+    </tr>`).join('');
+
+  const quotePage = `
+  <div class="page quote-page">
+    <!-- Quote table header -->
+    <div class="quote-header">
+      <h2 class="quote-for">Quotation for ${escapeHtml(inspection.customerName)}</h2>
+      <p class="quote-ref">Ref: ${escapeHtml(inspection.ref || '')}</p>
+    </div>
+
+    <table class="quote-table">
+      <thead>
+        <tr>
+          <th class="qty-cell">Qty</th>
+          <th class="desc-cell">Description</th>
+          <th class="price-cell">Total</th>
+        </tr>
+      </thead>
+      <tbody>${lineRows}</tbody>
+    </table>
+
+    <!-- Totals -->
+    <table class="totals-table">
+      <tr>
+        <td class="totals-label">Sub Total</td>
+        <td class="totals-value">${formatEuro(subTotal)}</td>
+      </tr>
+      <tr>
+        <td class="totals-label">VAT @ ${(COMPANY.vatRate * 100).toFixed(1)}%</td>
+        <td class="totals-value">${formatEuro(vat)}</td>
+      </tr>
+      <tr class="grand-total-row">
+        <td class="totals-label">Grand Total</td>
+        <td class="totals-value">${formatEuro(grandTotal)}</td>
+      </tr>
+    </table>
+
+    <!-- Terms & Conditions -->
+    <div class="terms-section">
+      <p class="terms-title"><strong>Terms &amp; Conditions</strong></p>
+      <ul class="terms-list">
+        ${TERMS_AND_CONDITIONS.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
+      </ul>
+    </div>
+  </div>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #222; font-size: 13px; }
+
+    .page { padding: 40px 44px; min-height: 100vh; }
+
+    /* ── Cover page ──────────────────── */
+    .cover-page {}
+
+    .company-header { text-align: center; margin-bottom: 32px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }
+
+    .logo-block { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 10px; }
+    .logo-diamond {
+      width: 70px; height: 70px;
+      background: linear-gradient(135deg, #c8941a 0%, #e8b84b 40%, #2d6a2d 60%, #1a4d1a 100%);
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .logo-text-aa { color: white; font-size: 18px; font-weight: 900; line-height: 1; }
+    .logo-text-quinn { color: white; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+
+    .logo-name { text-align: left; }
+    .logo-name-main { font-size: 20px; font-weight: 900; color: #1a3c5e; letter-spacing: 2px; }
+    .logo-name-sub { font-size: 12px; font-weight: 600; color: #555; letter-spacing: 4px; }
+
+    .company-services { font-size: 11px; color: #c8941a; margin-top: 8px; letter-spacing: 0.3px; }
+    .company-contact { font-size: 11px; color: #555; margin-top: 4px; }
+
+    .quotation-title { font-size: 20px; font-weight: 700; text-align: center; margin: 28px 0 24px; letter-spacing: 2px; }
+
+    .letter-date { font-size: 13px; margin-bottom: 20px; }
+    .letter-address { margin-bottom: 20px; font-size: 13px; line-height: 1.6; }
+    .letter-ref { font-size: 15px; color: #c8001a; margin-bottom: 20px; text-align: center; }
+    .letter-salutation { font-size: 13px; margin-bottom: 12px; }
+    .letter-body { font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
+    .letter-sign { font-size: 13px; margin-top: 28px; margin-bottom: 32px; line-height: 1.8; }
+
+    .signature-block { margin-top: 8px; }
+    .signature-line { width: 180px; border-top: 1px solid #333; margin-bottom: 8px; }
+    .signatory-name { font-size: 13px; font-weight: 600; }
+    .signatory-title { font-size: 13px; color: #555; }
+
+    /* ── Quote page ──────────────────── */
+    .quote-page { page-break-before: always; }
+    .quote-header { margin-bottom: 24px; }
+    .quote-for { font-size: 18px; font-weight: 700; text-align: center; }
+    .quote-ref { font-size: 14px; font-weight: 700; color: #c8001a; text-align: center; margin-top: 4px; }
+
+    .quote-table { width: 100%; border-collapse: collapse; border: 1px solid #333; margin-bottom: 0; }
+    .quote-table th { background: #f5f5f5; padding: 8px 10px; font-size: 12px; font-weight: 700; border: 1px solid #333; }
+    .quote-table td { padding: 10px; border: 1px solid #ccc; font-size: 12px; vertical-align: top; line-height: 1.6; }
+    .qty-cell { width: 80px; }
+    .desc-cell { }
+    .price-cell { width: 100px; text-align: right; font-weight: 600; }
+
+    .totals-table { width: 100%; border-collapse: collapse; border: 1px solid #333; border-top: none; }
+    .totals-table tr td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #ddd; }
+    .totals-label { font-weight: 600; }
+    .totals-value { text-align: right; font-weight: 600; }
+    .grand-total-row td { font-weight: 700; font-size: 14px; border-top: 2px solid #333; border-bottom: 2px solid #333; }
+
+    .terms-section { margin-top: 28px; }
+    .terms-title { font-size: 13px; margin-bottom: 8px; }
+    .terms-list { padding-left: 20px; }
+    .terms-list li { font-size: 12px; color: #444; margin-bottom: 4px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  ${coverPage}
+  ${quotePage}
+</body>
+</html>`;
+}
+
+/** Renders the 2-page customer quotation (cover letter + quote table) to PDF. */
+export async function generateQuotePDF(inspection: Inspection): Promise<string> {
+  const html = buildQuoteHtml(inspection);
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  return uri;
+}
+
+/** Share the quote PDF via the native share sheet. */
+export async function shareQuotePDF(pdfUri: string): Promise<void> {
+  const canShare = await Sharing.isAvailableAsync();
+  if (!canShare) throw new Error('Sharing is not available on this device.');
+  await Sharing.shareAsync(pdfUri, {
+    mimeType: 'application/pdf',
+    dialogTitle: 'Share Quote',
+    UTI: 'com.adobe.pdf',
+  });
+}
+
+/** Email the quote PDF to the customer. */
+export async function emailQuote(inspection: Inspection, pdfUri: string): Promise<void> {
+  const available = await MailComposer.isAvailableAsync();
+  if (!available) throw new Error('Mail is not set up on this device. Try using Share instead.');
+  await MailComposer.composeAsync({
+    recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
+    subject: `Quotation — ${inspection.ref || inspection.address}`,
+    body: `Dear ${inspection.customerName},\n\nPlease find attached our quotation for the works on ${inspection.ref || inspection.address}.\n\nIf you have any queries please don't hesitate to contact us.\n\nYours sincerely,\n${COMPANY.signatoryName}\n${COMPANY.signatoryTitle}\n${COMPANY.shortName}\nTel: ${COMPANY.tel}\nEmail: ${COMPANY.email}`,
+    attachments: [pdfUri],
+  });
 }
 
 /** Opens the native share sheet so the user can save / forwards the PDF. */

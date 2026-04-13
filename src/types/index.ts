@@ -38,18 +38,36 @@ export interface InspectionPhoto {
   drawingViewport?: { width: number; height: number };
 }
 
+// ─── Quote ───────────────────────────────────────────────────────────────────
+export interface QuoteLineItem {
+  id: string;
+  /** Free-text quantity, e.g. "104 m²", "1 No.", "Allow" */
+  qty: string;
+  /** Multi-line description of the work */
+  description: string;
+  /** Total price for this line (ex-VAT) */
+  totalPrice: number;
+}
+
+export interface Quote {
+  lineItems: QuoteLineItem[];
+}
+
 // ─── Inspection ──────────────────────────────────────────────────────────────
 export interface Inspection {
   id: string;
   customerName: string;
   customerEmail: string;
   address: string;
+  /** Free-text job reference, e.g. "Castlemartyr Golf Clubhouse" */
+  ref: string;
   /** ISO date (YYYY-MM-DD) */
   date: string;
   /** General notes about the entire inspection */
   notes: string;
   inspectorName: string;
   photos: InspectionPhoto[];
+  quote: Quote;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +80,7 @@ export type RootStackParamList = {
   Camera: { inspectionId: string };
   PhotoDetail: { inspectionId: string; photoId: string };
   Report: { inspectionId: string };
+  Quote: { inspectionId: string };
 };
 
 
