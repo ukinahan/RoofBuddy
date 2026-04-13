@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Roof Inspector",
+    "slug": "roof-inspector",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a3c5e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.roofinspector.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Roof Inspector needs camera access to take photos of roofs for inspection reports.",
+        "NSPhotoLibraryUsageDescription": "Roof Inspector needs photo library access to attach existing photos to inspections.",
+        "NSPhotoLibraryAddUsageDescription": "Roof Inspector saves inspection photos to your photo library."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a3c5e"
+      },
+      "package": "com.roofinspector.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-image-picker",
+      "expo-media-library",
+      "expo-asset",
+      "expo-mail-composer"
+    ]
+  }
+}
