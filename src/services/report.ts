@@ -244,7 +244,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const hasConcl = !!((inspection as any).conclusion || cost > 0);
   let conclusionPage = '';
   if (hasConcl) {
-    const pageNum = 2 + Math.ceil(inspection.photos.length / PHOTOS_PER_PAGE);
+    const pageNum = 2 + inspection.photos.length;
     const vat = cost * COMPANY.vatRate;
     const total = cost + vat;
     const fe = (n: number) => '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
