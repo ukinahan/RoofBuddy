@@ -216,7 +216,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
         <div class="photo-wrap">
           ${uri
-            ? `<div style="display:inline-block;position:relative;line-height:0;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>`
+            ? `<div style="position:relative;display:block;width:100%;line-height:0;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>`
             : `<div class="pic-missing">No image available</div>`}
         </div>
         ${photo.notes ? `
@@ -282,8 +282,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .ov-val { padding: 14px 10px; font-size: 14px; vertical-align: middle; border-bottom: 1px solid #e8e8e8; }
     .photo-title { font-size: 18px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
     .photo-meta { font-size: 11px; color: #999; margin-bottom: 12px; }
-    .photo-wrap { border-radius: 8px; border: 1px solid #ddd; margin-bottom: 16px; text-align: center; background: #f0f0f0; padding: 6px; }
-    .pic-img { display: block; max-width: 100%; max-height: 520px; width: auto; height: auto; }
+    .photo-wrap { border-radius: 8px; border: 1px solid #ddd; margin-bottom: 16px; overflow: hidden; }
+    .pic-img { display: block; width: 100%; height: auto; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
