@@ -201,12 +201,12 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         .map((a, k) => `<li style="color:${SEVERITY_COLOR[a.severity]};">[${a.severity.toUpperCase()}] ${escapeHtml(a.note)}</li>`)
         .join('');
       const annotSvg = photo.annotations.length > 0
-        ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">${photo.annotations.map((ann, idx) => { const cx = (ann.x * 100).toFixed(1); const cy = (ann.y * 100).toFixed(1); const col = SEVERITY_COLOR[ann.severity] || '#666'; return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${col}" stroke="white" stroke-width="0.8"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="2.8" font-weight="bold">${idx + 1}</text>`; }).join('')}</svg>` : '';
+        ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 100" preserveAspectRatio="none">${photo.annotations.map((ann, idx) => { const cx = (ann.x * 100).toFixed(1); const cy = (ann.y * 100).toFixed(1); const col = SEVERITY_COLOR[ann.severity] || '#666'; return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${col}" stroke="white" stroke-width="0.8"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="2.8" font-weight="bold">${idx + 1}</text>`; }).join('')}</svg>` : '';
       const drawSvg = (photo.drawings?.length ?? 0) > 0
-        ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 ${photo.drawingViewport?.width ?? 390} ${photo.drawingViewport?.height ?? 292.5}" preserveAspectRatio="xMidYMid slice">${(photo.drawings ?? []).map((d) => drawingToSvgElement(d)).join('')}</svg>` : '';
+        ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 ${photo.drawingViewport?.width ?? 390} ${photo.drawingViewport?.height ?? 292.5}" preserveAspectRatio="none">${(photo.drawings ?? []).map((d) => drawingToSvgElement(d)).join('')}</svg>` : '';
       return `<td class="pic-cell">
         <div class="pic-hdr">Picture ${picNum}</div>
-        <div class="pic-body">${uri ? `<div style="position:relative;display:inline-block;width:100%;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>` : `<div class="pic-missing">No image</div>`}</div>
+        <div class="pic-body">${uri ? `<div style="position:relative;display:block;line-height:0;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>` : `<div class="pic-missing">No image</div>`}</div>
         ${photo.notes ? `<div class="pic-notes">${escapeHtml(photo.notes)}</div>` : ''}
         ${photo.annotations.length > 0 ? `<div class="pic-annots"><strong>Areas of Concern:</strong><ol>${annotItems}</ol></div>` : ''}
       </td>`;
@@ -267,7 +267,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .pic-empty { background: #fafafa; }
     .pic-hdr { background: #d0d0d0; padding: 10px; text-align: center; font-size: 15px; font-weight: 700; border-bottom: 1px solid #aaa; }
     .pic-body { padding: 8px; text-align: center; min-height: 180px; }
-    .pic-img { max-width: 100%; max-height: 240px; height: auto; object-fit: contain; display: block; margin: 0 auto; }
+    .pic-img { width: 100%; height: auto; display: block; }
     .pic-missing { color: #ccc; padding: 40px 10px; font-size: 12px; font-style: italic; }
     .pic-notes { padding: 6px 10px; font-size: 11px; color: #444; border-top: 1px solid #eee; background: #fafafa; font-style: italic; }
     .pic-annots { padding: 6px 10px 10px; font-size: 11px; background: #fafafa; border-top: 1px solid #eee; }
