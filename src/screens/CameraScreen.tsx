@@ -88,7 +88,7 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} facing={facing} />
+      <CameraView ref={cameraRef} style={styles.camera} facing={facing} ratio="4:3" />
 
       {/* Top controls */}
       <View style={styles.topBar}>

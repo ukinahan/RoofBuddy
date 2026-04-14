@@ -277,7 +277,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-block { page-break-inside: avoid; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8; }
     .photo-block:last-child { border-bottom: none; margin-bottom: 0; }
     .photo-wrap { margin-bottom: 38px; }
-    .pic-img { display: block; width: 69%; height: auto; margin: 0 auto; transform: scaleY(1.1); transform-origin: top center; }
+    .pic-img { display: block; width: 69%; height: auto; margin: 0 auto; transform: scaleY(1.1); transform-origin: top center; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
