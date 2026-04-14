@@ -207,7 +207,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
       <div class="photo-wrap-2col">
         ${uri
-          ? `<div style="text-align:center;"><div style="display:inline-block;position:relative;line-height:0;"><img src="${uri}" class="pic-img-2col"/>${drawSvg}${annotSvg}</div></div>`
+          ? `<div style="position:relative;line-height:0;width:100%;"><img src="${uri}" class="pic-img-2col"/>${drawSvg}${annotSvg}</div>`
           : `<div class="pic-missing">No image available</div>`}
       </div>
       ${photo.notes ? `
@@ -284,8 +284,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .cover-co { font-size: 20px; color: #1a3c5e; line-height: 2.0; }
     .cover-link { font-size: 13px; color: #1a3c5e; text-decoration: underline; }
     .cover-date { font-size: 14px; text-align: right; color: #1a3c5e; font-weight: 600; }
-    .page { page-break-before: always; }
-    .page-inner { padding: 20px 28px 10px; }
+    .page { page-break-before: always; min-height: 100vh; display: flex; flex-direction: column; }
+    .page-inner { flex: 1; padding: 20px 28px 10px; }
     .sec-heading { font-size: 17px; font-weight: 700; text-align: center; text-decoration: underline; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 24px; }
     .ov-table { width: 100%; border-collapse: collapse; }
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
@@ -299,7 +299,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-col-left { padding-right: 10px; border-right: 1px solid #ddd; }
     .photo-col-right { padding-left: 10px; }
     .photo-wrap-2col { margin-bottom: 8px; }
-    .pic-img-2col { display: block; max-width: 100%; max-height: 180px; width: auto; height: auto; }
+    .pic-img-2col { display: block; width: 100%; height: auto; max-height: 220px; object-fit: contain; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
