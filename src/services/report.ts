@@ -207,7 +207,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
       <div class="photo-wrap-2col">
         ${uri
-          ? `<div style="display:block;position:relative;line-height:0;width:100%;"><img src="${uri}" class="pic-img-2col"/>${drawSvg}${annotSvg}</div>`
+          ? `<div style="text-align:center;"><div style="display:inline-block;position:relative;line-height:0;"><img src="${uri}" class="pic-img-2col"/>${drawSvg}${annotSvg}</div></div>`
           : `<div class="pic-missing">No image available</div>`}
       </div>
       ${photo.notes ? `
@@ -299,7 +299,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-col-left { padding-right: 10px; border-right: 1px solid #ddd; }
     .photo-col-right { padding-left: 10px; }
     .photo-wrap-2col { margin-bottom: 8px; }
-    .pic-img-2col { display: block; width: 100%; height: auto; }
+    .pic-img-2col { display: block; max-width: 100%; max-height: 180px; width: auto; height: auto; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
