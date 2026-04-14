@@ -215,7 +215,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
         <div class="photo-wrap">
           ${uri
-            ? `<div style="position:relative;display:block;width:100%;height:420px;overflow:hidden;line-height:0;"><img src="${uri}" style="width:100%;height:100%;object-fit:cover;display:block;"/>${drawSvg}${annotSvg}</div>`
+            ? `<div style="text-align:center;"><div style="display:inline-block;position:relative;line-height:0;"><img src="${uri}" style="height:420px;width:auto;max-width:100%;display:block;"/>${drawSvg}${annotSvg}</div></div>`
             : `<div class="pic-missing">No image available</div>`}
         </div>
         ${photo.notes ? `
