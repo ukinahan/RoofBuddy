@@ -115,8 +115,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     addressToSatelliteUri(inspection.address),
   ]);
   const logoImg = logoUri
-    ? `<img src="${logoUri}" style="max-width:220px;height:auto;display:block;margin-bottom:14px;"/>`
-    : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:14px;">A&amp;A QUINN<br/><span style="font-size:14px;letter-spacing:2px;">ROOFING SOLUTIONS</span></div>`;
+    ? `<img src="${logoUri}" style="width:100%;max-width:300px;height:auto;display:block;margin-bottom:0;"/>`
+    : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:0;">A&amp;A QUINN<br/><span style="font-size:14px;letter-spacing:2px;">ROOFING SOLUTIONS</span></div>`;
 
   const surveyDateStr = fmtDateOrdinal(inspection.date);
   const reportDateStr = fmtDateOrdinal(new Date());
@@ -132,9 +132,9 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const coverPage = `
   <div class="page-cover">
     <div class="cover-left">
-      ${logoImg}
+      <div class="cover-logo-wrap">${logoImg}</div>
       <div class="cover-title-band">Roof Survey Report</div>
-      <div style="flex:1;min-height:80px;"></div>
+      <div style="flex:1;"></div>
       <div class="customer-box">
         ${[inspection.customerName, ...custLines].map((l) => `<div><strong>${escapeHtml(l)}</strong></div>`).join('')}
       </div>
@@ -143,16 +143,17 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <div class="cover-year">${year}</div>
       <div style="flex:1;"></div>
       <div class="cover-co">
+        ${inspection.inspectorName ? `<div class="cover-inspector">${escapeHtml(inspection.inspectorName)}</div>` : ''}
         <div>${escapeHtml(COMPANY.nameLine1)}</div>
         <div>${escapeHtml(COMPANY.nameLine2)}</div>
         ${COMPANY.addressLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
         <div>${COMPANY.eircode}</div>
-        <div style="color:#2255a0;text-decoration:underline;font-size:12px;margin-top:8px;">${COMPANY.website}</div>
-        <div style="color:#2255a0;text-decoration:underline;font-size:12px;">${COMPANY.email}</div>
-        <div style="margin-top:10px;">${COMPANY.telCompact}</div>
+        <div class="cover-link" style="margin-top:10px;">${COMPANY.website}</div>
+        <div class="cover-link">${COMPANY.email}</div>
+        <div style="margin-top:14px;">${COMPANY.tel}</div>
       </div>
       <div style="flex:1;"></div>
-      <div class="cover-date"><strong>${surveyDateStr}</strong></div>
+      <div class="cover-date">${surveyDateStr}</div>
     </div>
   </div>`;
 
@@ -247,14 +248,17 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #222; }
     .page-cover { display: flex; flex-direction: row; min-height: 100vh; page-break-after: always; }
-    .cover-left { flex: 62; padding: 40px 36px; display: flex; flex-direction: column; background: #fff; }
+    .cover-left { flex: 62; padding: 40px 0 40px 0; display: flex; flex-direction: column; background: #fff; }
+    .cover-logo-wrap { padding: 0 36px 0 36px; }
     .cover-right { flex: 38; background: #acc28a; padding: 32px 22px; display: flex; flex-direction: column; border-left: 3px solid #8aac68; }
-    .cover-title-band { background: #111; color: white; padding: 14px 18px; font-size: 20px; font-weight: 700; }
-    .customer-box { border: 2.5px solid #111; padding: 18px; text-align: center; }
-    .customer-box div { font-size: 18px; line-height: 2; }
-    .cover-year { font-size: 32px; font-weight: 700; color: #333; text-align: right; }
-    .cover-co { font-size: 18px; color: #1a3c5e; line-height: 1.9; }
-    .cover-date { font-size: 13px; text-align: right; color: #333; }
+    .cover-title-band { background: #111; color: white; padding: 16px 36px; font-size: 22px; font-weight: 700; margin-top: 14px; }
+    .customer-box { border: 2.5px solid #111; padding: 20px 28px; text-align: center; margin: 0 36px; }
+    .customer-box div { font-size: 18px; line-height: 2.1; }
+    .cover-year { font-size: 28px; font-weight: 600; color: rgba(255,255,255,0.75); text-align: right; }
+    .cover-inspector { font-size: 14px; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
+    .cover-co { font-size: 20px; color: #fff; line-height: 2.0; }
+    .cover-link { font-size: 13px; color: rgba(255,255,255,0.85); text-decoration: underline; }
+    .cover-date { font-size: 14px; text-align: right; color: #fff; font-weight: 600; }
     .page { page-break-before: always; }
     .page-inner { padding: 40px 40px 20px; }
     .sec-heading { font-size: 17px; font-weight: 700; text-align: center; text-decoration: underline; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 24px; }
