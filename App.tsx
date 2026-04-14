@@ -1,10 +1,11 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { RootStackParamList } from './src/types';
 
+import SplashScreen from './src/screens/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import NewInspectionScreen from './src/screens/NewInspectionScreen';
 import InspectionScreen from './src/screens/InspectionScreen';
@@ -16,6 +17,22 @@ import QuoteScreen from './src/screens/QuoteScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 2200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!ready) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <SplashScreen />
+      </>
+    );
+  }
+
   return (
     <NavigationContainer>
       <StatusBar style="light" />
