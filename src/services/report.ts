@@ -183,9 +183,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   // ── Pages 3+: Photos (2 per page, side by side) ───────────────────────────
   const photoPageHtmlArr: string[] = [];
 
-  inspection.photos.forEach((photo, i) => {
-    const picNum = i + 1;
-    const uri = photoDataUris[i];
+  const buildPhotoBlock = (photo: typeof inspection.photos[0], picNum: number, uri: string | null): string => {
     const highC = photo.annotations.filter((a) => a.severity === 'high');
     const medC  = photo.annotations.filter((a) => a.severity === 'medium');
     const lowC  = photo.annotations.filter((a) => a.severity === 'low');
@@ -195,9 +193,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <td class="ct-desc" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(a.note)}</td>
       </tr>`
     ).join('');
-    photoPageHtmlArr.push(`
-    <div class="page">
-      <div class="page-inner">
+    return `
+      <div class="photo-block">
         <h2 class="photo-title">Photo ${picNum}</h2>
         <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
         <div class="photo-wrap">
@@ -220,9 +217,21 @@ async function buildHtml(inspection: Inspection): Promise<string> {
           <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th></tr></thead>
           <tbody>${concernRows}</tbody>
         </table>` : ''}
+      </div>`;
+  };
+
+  for (let i = 0; i < inspection.photos.length; i += 2) {
+    const uriA = photoDataUris[i];
+    const uriB = photoDataUris[i + 1] ?? null;
+    const photoB = inspection.photos[i + 1];
+    photoPageHtmlArr.push(`
+    <div class="page">
+      <div class="page-inner">
+        ${buildPhotoBlock(inspection.photos[i], i + 1, uriA)}
+        ${photoB ? buildPhotoBlock(photoB, i + 2, uriB) : ''}
       </div>
     </div>`);
-  });
+  }
 
   // ── Conclusion page ────────────────────────────────────────────────────────
   const cost = (inspection as any).costOfRepairs || 0;
@@ -264,9 +273,11 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
     .ov-val { padding: 14px 10px; font-size: 14px; vertical-align: middle; border-bottom: 1px solid #e8e8e8; }
     .photo-title { font-size: 16px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
-    .photo-meta { font-size: 11px; color: #999; margin-bottom: 12px; }
-    .photo-wrap { margin-bottom: 16px; }
-    .pic-img { display: block; width: 75%; height: auto; margin: 0 auto; }
+    .photo-meta { font-size: 11px; color: #999; margin-bottom: 10px; }
+    .photo-block { page-break-inside: avoid; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8; }
+    .photo-block:last-child { border-bottom: none; margin-bottom: 0; }
+    .photo-wrap { margin-bottom: 12px; }
+    .pic-img { display: block; width: 60%; height: auto; margin: 0 auto; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
