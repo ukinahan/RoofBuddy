@@ -226,9 +226,9 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         ${photo.annotations.length > 0 ? `
         <h3 class="concern-heading">Concerns Identified (${photo.annotations.length})</h3>
         <div class="badge-row">
-          ${highC.length > 0 ? `<span class="badge badge-high">${highC.length} High</span>` : ''}
-          ${medC.length  > 0 ? `<span class="badge badge-med">${medC.length} Medium</span>` : ''}
-          ${lowC.length  > 0 ? `<span class="badge badge-low">${lowC.length} Low</span>` : ''}
+          ${highC.length > 0 ? `<span class="badge badge-high"><span class="dot dot-high"></span>${highC.length} High</span>` : ''}
+          ${medC.length  > 0 ? `<span class="badge badge-med"><span class="dot dot-med"></span>${medC.length} Medium</span>` : ''}
+          ${lowC.length  > 0 ? `<span class="badge badge-low"><span class="dot dot-low"></span>${lowC.length} Low</span>` : ''}
         </div>
         <table class="concern-table">
           <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th><th>SOURCE</th></tr></thead>
@@ -287,11 +287,15 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
-    .badge-row { display: flex; gap: 16px; margin-bottom: 12px; }
-    .badge { font-size: 12px; color: #888; }
+    .badge-row { display: flex; gap: 20px; margin-bottom: 12px; align-items: center; }
+    .badge { font-size: 12px; display: flex; align-items: center; gap: 6px; }
     .badge-high { color: #d32f2f; }
     .badge-med  { color: #f57c00; }
     .badge-low  { color: #388e3c; }
+    .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .dot-high { background: #d32f2f; }
+    .dot-med  { background: #f57c00; }
+    .dot-low  { background: #388e3c; }
     .concern-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
     .concern-table thead tr { border-bottom: 2px solid #e0e0e0; }
     .concern-table th { text-align: left; font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.5px; padding: 6px 8px 6px 0; }
