@@ -134,15 +134,13 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     <div class="cover-left">
       <div class="cover-logo-wrap">${logoImg}</div>
       <div class="cover-title-band">Roof Survey Report</div>
-      <div style="flex:1;"></div>
-      <div class="customer-box">
+      <div class="customer-box" style="margin-top:280px;">
         ${[inspection.customerName, ...custLines].map((l) => `<div><strong>${escapeHtml(l)}</strong></div>`).join('')}
       </div>
     </div>
     <div class="cover-right">
       <div class="cover-year">${year}</div>
-      <div style="flex:1;"></div>
-      <div class="cover-co">
+      <div class="cover-co" style="margin-top:200px;">
         ${inspection.inspectorName ? `<div class="cover-inspector">${escapeHtml(inspection.inspectorName)}</div>` : ''}
         <div>${escapeHtml(COMPANY.nameLine1)}</div>
         <div>${escapeHtml(COMPANY.nameLine2)}</div>
@@ -152,8 +150,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <div class="cover-link">${COMPANY.email}</div>
         <div style="margin-top:14px;">${COMPANY.tel}</div>
       </div>
-      <div style="flex:1;"></div>
-      <div class="cover-date">${surveyDateStr}</div>
+      <div class="cover-date" style="margin-top:80px;">${surveyDateStr}</div>
     </div>
   </div>`;
 
@@ -247,10 +244,10 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const css = `<style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #222; }
-    .page-cover { display: flex; flex-direction: row; min-height: 100vh; page-break-after: always; }
-    .cover-left { flex: 62; padding: 40px 0 40px 0; display: flex; flex-direction: column; background: #fff; }
-    .cover-logo-wrap { padding: 0 36px 0 36px; }
-    .cover-right { flex: 38; background: #acc28a; padding: 32px 22px; display: flex; flex-direction: column; border-left: 3px solid #8aac68; }
+    .page-cover { display: table; width: 100%; page-break-after: always; }
+    .cover-left { display: table-cell; width: 62%; vertical-align: top; background: #fff; padding-bottom: 40px; }
+    .cover-logo-wrap { padding: 40px 36px 0; }
+    .cover-right { display: table-cell; width: 38%; background: #acc28a; padding: 32px 22px; vertical-align: top; border-left: 3px solid #8aac68; }
     .cover-title-band { background: #111; color: white; padding: 16px 36px; font-size: 22px; font-weight: 700; margin-top: 14px; }
     .customer-box { border: 2.5px solid #111; padding: 20px 28px; text-align: center; margin: 0 36px; }
     .customer-box div { font-size: 18px; line-height: 2.1; }
