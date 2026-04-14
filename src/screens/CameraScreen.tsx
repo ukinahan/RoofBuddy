@@ -4,6 +4,7 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import * as FileSystem from 'expo-file-system/legacy';
 import { v4 as uuidv4 } from 'uuid';
 import { RootStackParamList, InspectionPhoto } from '../types';
@@ -22,6 +23,15 @@ export default function CameraScreen() {
   const [capturing, setCapturing] = useState(false);
   const [photosTaken, setPhotosTaken] = useState(0);
   const cameraRef = useRef<CameraView>(null);
+
+  useEffect(() => {
+    // Lock to landscape when camera opens
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    return () => {
+      // Restore portrait when leaving camera
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, []);
 
   useEffect(() => {
     if (permission && !permission.granted) {

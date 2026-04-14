@@ -3,7 +3,7 @@
     "name": "Roof Inspector",
     "slug": "roof-inspector",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -43,6 +43,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-screen-orientation",
       "expo-camera",
       "expo-image-picker",
       "expo-media-library",
