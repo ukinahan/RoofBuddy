@@ -183,8 +183,9 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   // ── Pages 3+: Photos (2 per page, side by side) ───────────────────────────
   const photoPageHtmlArr: string[] = [];
 
-  const buildPhotoCell = (photo: typeof inspection.photos[0], idx: number, uri: string | null): string => {
-    const picNum = idx + 1;
+  inspection.photos.forEach((photo, i) => {
+    const picNum = i + 1;
+    const uri = photoDataUris[i];
     const highC = photo.annotations.filter((a) => a.severity === 'high');
     const medC  = photo.annotations.filter((a) => a.severity === 'medium');
     const lowC  = photo.annotations.filter((a) => a.severity === 'low');
@@ -194,50 +195,34 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <td class="ct-desc" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(a.note)}</td>
       </tr>`
     ).join('');
-    return `
-      <h2 class="photo-title">Photo ${picNum}</h2>
-      <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
-      <div class="photo-wrap-2col">
-        ${uri
-          ? `<img src="${uri}" class="pic-img-2col"/>`
-          : `<div class="pic-missing">No image available</div>`}
-      </div>
-      ${photo.notes ? `
-      <div class="notes-box">
-        <strong>Inspector Notes:</strong><br/>${escapeHtml(photo.notes)}
-      </div>` : ''}
-      ${photo.annotations.length > 0 ? `
-      <h3 class="concern-heading">Concerns Identified (${photo.annotations.length})</h3>
-      <div class="badge-row">
-        ${highC.length > 0 ? `<span class="badge badge-high"><span class="dot dot-high"></span>${highC.length} High</span>` : ''}
-        ${medC.length  > 0 ? `<span class="badge badge-med"><span class="dot dot-med"></span>${medC.length} Medium</span>` : ''}
-        ${lowC.length  > 0 ? `<span class="badge badge-low"><span class="dot dot-low"></span>${lowC.length} Low</span>` : ''}
-      </div>
-      <table class="concern-table">
-        <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th></tr></thead>
-        <tbody>${concernRows}</tbody>
-      </table>` : ''}`;
-  };
-
-  for (let i = 0; i < inspection.photos.length; i += 2) {
-    const photoA = inspection.photos[i];
-    const photoB = inspection.photos[i + 1];
-    const uriA = photoDataUris[i];
-    const uriB = photoDataUris[i + 1] ?? null;
     photoPageHtmlArr.push(`
     <div class="page">
       <div class="page-inner">
-        <div class="photo-row">
-          <div class="photo-col photo-col-left">
-            ${buildPhotoCell(photoA, i, uriA)}
-          </div>
-          <div class="photo-col photo-col-right">
-            ${photoB ? buildPhotoCell(photoB, i + 1, uriB) : ''}
-          </div>
+        <h2 class="photo-title">Photo ${picNum}</h2>
+        <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
+        <div class="photo-wrap">
+          ${uri
+            ? `<img src="${uri}" class="pic-img"/>`
+            : `<div class="pic-missing">No image available</div>`}
         </div>
+        ${photo.notes ? `
+        <div class="notes-box">
+          <strong>Inspector Notes:</strong><br/>${escapeHtml(photo.notes)}
+        </div>` : ''}
+        ${photo.annotations.length > 0 ? `
+        <h3 class="concern-heading">Concerns Identified (${photo.annotations.length})</h3>
+        <div class="badge-row">
+          ${highC.length > 0 ? `<span class="badge badge-high"><span class="dot dot-high"></span>${highC.length} High</span>` : ''}
+          ${medC.length  > 0 ? `<span class="badge badge-med"><span class="dot dot-med"></span>${medC.length} Medium</span>` : ''}
+          ${lowC.length  > 0 ? `<span class="badge badge-low"><span class="dot dot-low"></span>${lowC.length} Low</span>` : ''}
+        </div>
+        <table class="concern-table">
+          <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th></tr></thead>
+          <tbody>${concernRows}</tbody>
+        </table>` : ''}
       </div>
     </div>`);
-  }
+  });
 
   // ── Conclusion page ────────────────────────────────────────────────────────
   const cost = (inspection as any).costOfRepairs || 0;
@@ -278,16 +263,10 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .ov-table { width: 100%; border-collapse: collapse; }
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
     .ov-val { padding: 14px 10px; font-size: 14px; vertical-align: middle; border-bottom: 1px solid #e8e8e8; }
-    .photo-title { font-size: 15px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
-    .photo-meta { font-size: 10px; color: #999; margin-bottom: 8px; }
-    .photo-wrap { margin-bottom: 10px; text-align: center; }
-    .pic-img { display: block; max-width: 100%; max-height: 400px; width: auto; height: auto; }
-    .photo-row { display: table; width: 100%; table-layout: fixed; }
-    .photo-col { display: table-cell; width: 50%; vertical-align: top; }
-    .photo-col-left { padding-right: 10px; border-right: 1px solid #ddd; }
-    .photo-col-right { padding-left: 10px; }
-    .photo-wrap-2col { margin-bottom: 8px; }
-    .pic-img-2col { display: block; width: 100%; height: auto; max-height: 220px; object-fit: contain; }
+    .photo-title { font-size: 16px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
+    .photo-meta { font-size: 11px; color: #999; margin-bottom: 12px; }
+    .photo-wrap { margin-bottom: 16px; }
+    .pic-img { display: block; width: 75%; height: auto; margin: 0 auto; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
