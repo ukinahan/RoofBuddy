@@ -134,8 +134,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     <div class="cover-left">
       <div class="cover-logo-wrap">${logoImg}</div>
       <div class="cover-title-band">Roof Survey Report</div>
-      <div class="customer-box" style="margin-top:280px;">
-        ${[inspection.customerName, ...custLines].map((l) => `<div><strong>${escapeHtml(l)}</strong></div>`).join('')}
+      <div class="customer-box">
+        ${[inspection.customerName, ...custLines].map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
       </div>
     </div>
     <div class="cover-right">
@@ -249,13 +249,13 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .cover-logo-wrap { padding: 40px 36px 0; }
     .cover-right { display: table-cell; width: 38%; background: #acc28a; padding: 32px 22px; vertical-align: top; border-left: 3px solid #8aac68; }
     .cover-title-band { background: #111; color: white; padding: 16px 36px; font-size: 22px; font-weight: 700; margin-top: 14px; }
-    .customer-box { border: 2.5px solid #111; padding: 20px 28px; text-align: center; margin: 0 36px; }
-    .customer-box div { font-size: 18px; line-height: 2.1; }
-    .cover-year { font-size: 28px; font-weight: 600; color: rgba(255,255,255,0.75); text-align: right; }
-    .cover-inspector { font-size: 14px; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
-    .cover-co { font-size: 20px; color: #fff; line-height: 2.0; }
-    .cover-link { font-size: 13px; color: rgba(255,255,255,0.85); text-decoration: underline; }
-    .cover-date { font-size: 14px; text-align: right; color: #fff; font-weight: 600; }
+    .customer-box { padding: 0 36px; text-align: left; margin-top: 280px; }
+    .customer-box div { font-size: 18px; line-height: 2.1; font-weight: 700; color: #1a3c5e; }
+    .cover-year { font-size: 28px; font-weight: 600; color: #1a3c5e; text-align: right; }
+    .cover-inspector { font-size: 14px; color: #1a3c5e; opacity: 0.75; margin-bottom: 8px; }
+    .cover-co { font-size: 20px; color: #1a3c5e; line-height: 2.0; }
+    .cover-link { font-size: 13px; color: #1a3c5e; text-decoration: underline; }
+    .cover-date { font-size: 14px; text-align: right; color: #1a3c5e; font-weight: 600; }
     .page { page-break-before: always; }
     .page-inner { padding: 40px 40px 20px; }
     .sec-heading { font-size: 17px; font-weight: 700; text-align: center; text-decoration: underline; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 24px; }
@@ -278,7 +278,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .map-section { margin-top: 24px; }
     .map-label { font-size: 11px; font-weight: 700; color: #555; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
     .map-img { width: 100%; max-height: 340px; object-fit: cover; border: 1px solid #ccc; border-radius: 4px; display: block; }
-    .footer-bar { background: #c0d8a4; display: flex; justify-content: space-between; align-items: center; padding: 7px 20px; font-size: 11px; color: #333; }
+    .footer-bar { background: #c0d8a4; display: flex; justify-content: space-between; align-items: center; padding: 7px 20px; font-size: 11px; color: #1a3c5e; font-weight: 600; }
     .fp { font-weight: 700; }
   </style>`;
 
