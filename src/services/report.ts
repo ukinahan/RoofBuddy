@@ -123,9 +123,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const year = new Date(inspection.date).getFullYear();
   const photoDataUris = await Promise.all(inspection.photos.map((p) => toDataUri(p.uri)));
 
-  const footerBar = (n: number) =>
-    `<div class="footer-bar"><span>${escapeHtml(COMPANY.shortName)} Ltd</span><span>${COMPANY.website}</span><span>Tel: ${COMPANY.telCompact}</span><span class="fp">${n}</span></div>`;
-
   const custLines = inspection.address.split(',').map((l) => l.trim()).filter(Boolean);
 
   // ── Page 1: Cover ──────────────────────────────────────────────────────────
@@ -181,7 +178,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <img src="${satelliteUri}" class="map-img"/>
       </div>` : ''}
     </div>
-    ${footerBar(1)}
   </div>`;
 
   // ── Pages 3+: Photos (2 per page, side by side) ───────────────────────────
@@ -232,7 +228,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     const photoB = inspection.photos[i + 1];
     const uriA = photoDataUris[i];
     const uriB = photoDataUris[i + 1] ?? null;
-    const pageNum = 2 + Math.floor(i / 2);
     photoPageHtmlArr.push(`
     <div class="page">
       <div class="page-inner">
@@ -245,7 +240,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
           </div>
         </div>
       </div>
-      ${footerBar(pageNum)}
     </div>`);
   }
 
@@ -254,7 +248,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const hasConcl = !!((inspection as any).conclusion || cost > 0);
   let conclusionPage = '';
   if (hasConcl) {
-    const pageNum = 2 + Math.ceil(inspection.photos.length / 2);
     const vat = cost * COMPANY.vatRate;
     const total = cost + vat;
     const fe = (n: number) => '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -264,7 +257,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         ${(inspection as any).conclusion ? `<h2 class="sec-heading">Conclusion</h2><p class="concl-text">${escapeHtml((inspection as any).conclusion)}</p>` : ''}
         ${cost > 0 ? `<h2 class="sec-heading" style="margin-top:40px;">Cost of Repairs</h2><p class="cost-text">${fe(cost)} Plus VAT @ ${(COMPANY.vatRate * 100).toFixed(1)}% = ${fe(total)}</p>` : ''}
       </div>
-      ${footerBar(pageNum)}
     </div>`;
   }
 
@@ -322,8 +314,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .map-section { margin-top: 24px; }
     .map-label { font-size: 11px; font-weight: 700; color: #555; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
     .map-img { width: 100%; max-height: 340px; object-fit: cover; border: 1px solid #ccc; border-radius: 4px; display: block; }
-    .footer-bar { background: #c0d8a4; display: flex; justify-content: space-between; align-items: center; padding: 7px 20px; font-size: 11px; color: #1a3c5e; font-weight: 600; }
-    .fp { font-weight: 700; }
   </style>`;
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${css}</head><body>${coverPage}${overviewPage}${photoPageHtmlArr.join('')}${conclusionPage}</body></html>`;
