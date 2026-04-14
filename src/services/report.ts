@@ -188,10 +188,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     const highC = photo.annotations.filter((a) => a.severity === 'high');
     const medC  = photo.annotations.filter((a) => a.severity === 'medium');
     const lowC  = photo.annotations.filter((a) => a.severity === 'low');
-    const annotSvg = photo.annotations.length > 0
-      ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 100" preserveAspectRatio="none">${photo.annotations.map((ann, aidx) => { const cx = (ann.x * 100).toFixed(1); const cy = (ann.y * 100).toFixed(1); const col = SEVERITY_COLOR[ann.severity] || '#666'; return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${col}" stroke="white" stroke-width="0.8"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="2.8" font-weight="bold">${aidx + 1}</text>`; }).join('')}</svg>` : '';
-    const drawSvg = (photo.drawings?.length ?? 0) > 0
-      ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 ${photo.drawingViewport?.width ?? 390} ${photo.drawingViewport?.height ?? 292.5}" preserveAspectRatio="none">${(photo.drawings ?? []).map((d) => drawingToSvgElement(d)).join('')}</svg>` : '';
     const concernRows = photo.annotations.map((a) =>
       `<tr>
         <td class="ct-sev" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(SEVERITY_LABEL[a.severity])}</td>
@@ -203,7 +199,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
       <div class="photo-wrap-2col">
         ${uri
-          ? `<div style="position:relative;line-height:0;width:100%;"><img src="${uri}" class="pic-img-2col"/>${drawSvg}${annotSvg}</div>`
+          ? `<img src="${uri}" class="pic-img-2col"/>`
           : `<div class="pic-missing">No image available</div>`}
       </div>
       ${photo.notes ? `
