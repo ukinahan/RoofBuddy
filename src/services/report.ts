@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Asset } from 'expo-asset';
 import { Inspection, InspectionPhoto, Annotation, DrawingPath } from '../types';
 import { COMPANY, TERMS_AND_CONDITIONS } from './company';
+import { addressToSatelliteUri } from './maps';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,10 @@ function fmtDateOrdinal(isoOrDate: string | Date): string {
 }
 
 async function buildHtml(inspection: Inspection): Promise<string> {
-  const logoUri = await getLogoDataUri();
+  const [logoUri, satelliteUri] = await Promise.all([
+    getLogoDataUri(),
+    addressToSatelliteUri(inspection.address),
+  ]);
   const logoImg = logoUri
     ? `<img src="${logoUri}" style="max-width:220px;height:auto;display:block;margin-bottom:14px;"/>`
     : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:14px;">A&amp;A QUINN<br/><span style="font-size:14px;letter-spacing:2px;">ROOFING SOLUTIONS</span></div>`;
@@ -173,6 +177,11 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <table class="ov-table">
         ${ovRows.map(([lbl, val]) => `<tr><td class="ov-lbl">${lbl}</td><td class="ov-val"><strong>${val}</strong></td></tr>`).join('')}
       </table>
+      ${satelliteUri ? `
+      <div class="map-section">
+        <div class="map-label">Satellite View</div>
+        <img src="${satelliteUri}" class="map-img"/>
+      </div>` : ''}
     </div>
     ${footerBar(1)}
   </div>`;
@@ -246,8 +255,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .cover-year { font-size: 32px; font-weight: 700; color: #333; text-align: right; }
     .cover-co { font-size: 18px; color: #1a3c5e; line-height: 1.9; }
     .cover-date { font-size: 13px; text-align: right; color: #333; }
-    .page { page-break-before: always; display: flex; flex-direction: column; min-height: 100vh; }
-    .page-inner { flex: 1; padding: 40px 40px 20px; }
+    .page { page-break-before: always; }
+    .page-inner { padding: 40px 40px 20px; }
     .sec-heading { font-size: 17px; font-weight: 700; text-align: center; text-decoration: underline; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 24px; }
     .ov-table { width: 100%; border-collapse: collapse; }
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
@@ -265,6 +274,9 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .pic-annots li { margin-bottom: 2px; }
     .concl-text { font-size: 16px; font-weight: 700; line-height: 1.8; margin: 16px 0 24px; }
     .cost-text { font-size: 22px; font-weight: 700; margin-top: 16px; }
+    .map-section { margin-top: 24px; }
+    .map-label { font-size: 11px; font-weight: 700; color: #555; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+    .map-img { width: 100%; max-height: 340px; object-fit: cover; border: 1px solid #ccc; border-radius: 4px; display: block; }
     .footer-bar { background: #c0d8a4; display: flex; justify-content: space-between; align-items: center; padding: 7px 20px; font-size: 11px; color: #333; }
     .fp { font-weight: 700; }
   </style>`;
