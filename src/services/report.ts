@@ -282,7 +282,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-title { font-size: 18px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
     .photo-meta { font-size: 11px; color: #999; margin-bottom: 12px; }
     .photo-wrap { margin-bottom: 10px; text-align: center; }
-    .pic-img { display: block; max-width: 100%; max-height: 700px; width: auto; height: auto; }
+    .pic-img { display: block; max-width: 100%; max-height: 600px; width: auto; height: auto; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
