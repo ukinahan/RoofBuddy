@@ -205,7 +205,6 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       `<tr>
         <td class="ct-sev" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(SEVERITY_LABEL[a.severity])}</td>
         <td class="ct-desc" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(a.note)}</td>
-        <td class="ct-src">Inspector</td>
       </tr>`
     ).join('');
 
@@ -216,7 +215,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
         <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
         <div class="photo-wrap">
           ${uri
-            ? `<div style="display:inline-block;position:relative;line-height:0;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>`
+            ? `<div style="position:relative;display:block;width:100%;height:420px;overflow:hidden;line-height:0;"><img src="${uri}" style="width:100%;height:100%;object-fit:cover;display:block;"/>${drawSvg}${annotSvg}</div>`
             : `<div class="pic-missing">No image available</div>`}
         </div>
         ${photo.notes ? `
@@ -231,7 +230,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
           ${lowC.length  > 0 ? `<span class="badge badge-low"><span class="dot dot-low"></span>${lowC.length} Low</span>` : ''}
         </div>
         <table class="concern-table">
-          <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th><th>SOURCE</th></tr></thead>
+          <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th></tr></thead>
           <tbody>${concernRows}</tbody>
         </table>` : ''}
       </div>
@@ -275,15 +274,15 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .cover-link { font-size: 13px; color: #1a3c5e; text-decoration: underline; }
     .cover-date { font-size: 14px; text-align: right; color: #1a3c5e; font-weight: 600; }
     .page { page-break-before: always; }
-    .page-inner { padding: 40px 40px 20px; }
+    .page-inner { padding: 24px 32px 12px; }
     .sec-heading { font-size: 17px; font-weight: 700; text-align: center; text-decoration: underline; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 24px; }
     .ov-table { width: 100%; border-collapse: collapse; }
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
     .ov-val { padding: 14px 10px; font-size: 14px; vertical-align: middle; border-bottom: 1px solid #e8e8e8; }
     .photo-title { font-size: 18px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
     .photo-meta { font-size: 11px; color: #999; margin-bottom: 12px; }
-    .photo-wrap { border-radius: 8px; border: 1px solid #ddd; margin-bottom: 12px; text-align: center; }
-    .pic-img { display: block; max-height: 340px; max-width: 100%; width: auto; height: auto; }
+    .photo-wrap { border-radius: 6px; border: 1px solid #ddd; margin-bottom: 10px; overflow: hidden; }
+    .pic-img { display: block; width: 100%; height: auto; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
@@ -299,9 +298,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .concern-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
     .concern-table thead tr { border-bottom: 2px solid #e0e0e0; }
     .concern-table th { text-align: left; font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.5px; padding: 6px 8px 6px 0; }
-    .ct-sev  { padding: 8px 8px 8px 0; font-size: 13px; width: 42%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
-    .ct-desc { padding: 8px 8px 8px 0; font-size: 13px; width: 42%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
-    .ct-src  { padding: 8px 0; font-size: 12px; color: #bbb; width: 16%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .ct-sev  { padding: 6px 8px 6px 0; font-size: 12px; width: 50%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .ct-desc { padding: 6px 0; font-size: 12px; width: 50%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
     .concl-text { font-size: 16px; font-weight: 700; line-height: 1.8; margin: 16px 0 24px; }
     .cost-text { font-size: 22px; font-weight: 700; margin-top: 16px; }
     .map-section { margin-top: 24px; }
