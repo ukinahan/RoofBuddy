@@ -184,45 +184,60 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     ${footerBar(1)}
   </div>`;
 
-  // ── Pages 3+: Photos (4 per page, 2×2 grid) ───────────────────────────────
-  const PHOTOS_PER_PAGE = 2;
+  // ── Pages 3+: Photos (1 per page) ────────────────────────────────────────
   const photoPageHtmlArr: string[] = [];
 
-  for (let i = 0; i < inspection.photos.length; i += PHOTOS_PER_PAGE) {
-    const group = inspection.photos.slice(i, i + PHOTOS_PER_PAGE);
-    const pageNum = 2 + Math.floor(i / PHOTOS_PER_PAGE);
+  inspection.photos.forEach((photo, i) => {
+    const picNum = i + 1;
+    const pageNum = 2 + i;
+    const uri = photoDataUris[i];
 
-    const cells = group.map((photo, j) => {
-      const picNum = i + j + 1;
-      const uri = photoDataUris[i + j];
-      const annotItems = photo.annotations
-        .map((a) => `<li style="color:${SEVERITY_COLOR[a.severity]};">[${a.severity.toUpperCase()}] ${escapeHtml(a.note)}</li>`)
-        .join('');
-      const annotSvg = photo.annotations.length > 0
-        ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 100" preserveAspectRatio="none">${photo.annotations.map((ann, idx) => { const cx = (ann.x * 100).toFixed(1); const cy = (ann.y * 100).toFixed(1); const col = SEVERITY_COLOR[ann.severity] || '#666'; return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${col}" stroke="white" stroke-width="0.8"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="2.8" font-weight="bold">${idx + 1}</text>`; }).join('')}</svg>` : '';
-      const drawSvg = (photo.drawings?.length ?? 0) > 0
-        ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 ${photo.drawingViewport?.width ?? 390} ${photo.drawingViewport?.height ?? 292.5}" preserveAspectRatio="none">${(photo.drawings ?? []).map((d) => drawingToSvgElement(d)).join('')}</svg>` : '';
-      return `<td class="pic-cell">
-        <div class="pic-hdr">Picture ${picNum}</div>
-        <div class="pic-body">
-          ${uri ? `<div style="position:relative;display:block;width:100%;line-height:0;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>` : `<div class="pic-missing">No image</div>`}
-        </div>
-        ${photo.notes ? `<div class="pic-notes">${escapeHtml(photo.notes)}</div>` : ''}
-        ${photo.annotations.length > 0 ? `<div class="pic-annots"><strong>Areas of Concern:</strong><ol>${annotItems}</ol></div>` : ''}
-      </td>`;
-    });
+    const highC = photo.annotations.filter((a) => a.severity === 'high');
+    const medC  = photo.annotations.filter((a) => a.severity === 'medium');
+    const lowC  = photo.annotations.filter((a) => a.severity === 'low');
 
-    // Pad to 2 columns so the table row always has 2 cells (second may be empty/invisible)
-    while (cells.length < 2) cells.push(`<td class="pic-cell-empty"></td>`);
+    const annotSvg = photo.annotations.length > 0
+      ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 100" preserveAspectRatio="none">${photo.annotations.map((ann, idx) => { const cx = (ann.x * 100).toFixed(1); const cy = (ann.y * 100).toFixed(1); const col = SEVERITY_COLOR[ann.severity] || '#666'; return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${col}" stroke="white" stroke-width="0.8"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="2.8" font-weight="bold">${idx + 1}</text>`; }).join('')}</svg>` : '';
+    const drawSvg = (photo.drawings?.length ?? 0) > 0
+      ? `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 ${photo.drawingViewport?.width ?? 390} ${photo.drawingViewport?.height ?? 292.5}" preserveAspectRatio="none">${(photo.drawings ?? []).map((d) => drawingToSvgElement(d)).join('')}</svg>` : '';
+
+    const concernRows = photo.annotations.map((a) =>
+      `<tr>
+        <td class="ct-sev" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(SEVERITY_LABEL[a.severity])}</td>
+        <td class="ct-desc" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(a.note)}</td>
+        <td class="ct-src">Inspector</td>
+      </tr>`
+    ).join('');
 
     photoPageHtmlArr.push(`
     <div class="page">
       <div class="page-inner">
-        <table class="photo-grid"><tr>${cells.join('')}</tr></table>
+        <h2 class="photo-title">Photo ${picNum}</h2>
+        <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
+        <div class="photo-wrap">
+          ${uri
+            ? `<div style="position:relative;display:block;width:100%;line-height:0;"><img src="${uri}" class="pic-img"/>${drawSvg}${annotSvg}</div>`
+            : `<div class="pic-missing">No image available</div>`}
+        </div>
+        ${photo.notes ? `
+        <div class="notes-box">
+          <strong>Inspector Notes:</strong><br/>${escapeHtml(photo.notes)}
+        </div>` : ''}
+        ${photo.annotations.length > 0 ? `
+        <h3 class="concern-heading">Concerns Identified (${photo.annotations.length})</h3>
+        <div class="badge-row">
+          ${highC.length > 0 ? `<span class="badge badge-high">${highC.length} High</span>` : ''}
+          ${medC.length  > 0 ? `<span class="badge badge-med">${medC.length} Medium</span>` : ''}
+          ${lowC.length  > 0 ? `<span class="badge badge-low">${lowC.length} Low</span>` : ''}
+        </div>
+        <table class="concern-table">
+          <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th><th>SOURCE</th></tr></thead>
+          <tbody>${concernRows}</tbody>
+        </table>` : ''}
       </div>
       ${footerBar(pageNum)}
     </div>`);
-  }
+  });
 
   // ── Conclusion page ────────────────────────────────────────────────────────
   const cost = (inspection as any).costOfRepairs || 0;
@@ -265,17 +280,24 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .ov-table { width: 100%; border-collapse: collapse; }
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
     .ov-val { padding: 14px 10px; font-size: 14px; vertical-align: middle; border-bottom: 1px solid #e8e8e8; }
-    .photo-grid { width: 100%; border-collapse: collapse; border: 1px solid #999; }
-    .pic-cell { width: 50%; border: 1px solid #999; vertical-align: top; }
-    .pic-cell-empty { width: 50%; border: none; }
-    .pic-hdr { background: #d0d0d0; padding: 10px; text-align: center; font-size: 15px; font-weight: 700; border-bottom: 1px solid #aaa; }
-    .pic-body { padding: 0; }
+    .photo-title { font-size: 18px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
+    .photo-meta { font-size: 11px; color: #999; margin-bottom: 12px; }
+    .photo-wrap { border-radius: 8px; overflow: hidden; border: 1px solid #ddd; margin-bottom: 16px; }
     .pic-img { width: 100%; height: auto; display: block; }
-    .pic-missing { color: #ccc; padding: 40px 10px; font-size: 12px; font-style: italic; text-align: center; }
-    .pic-notes { padding: 6px 10px; font-size: 11px; color: #444; border-top: 1px solid #eee; background: #fafafa; font-style: italic; }
-    .pic-annots { padding: 6px 10px 10px; font-size: 11px; background: #fafafa; border-top: 1px solid #eee; }
-    .pic-annots ol { padding-left: 16px; margin-top: 4px; }
-    .pic-annots li { margin-bottom: 2px; }
+    .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
+    .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
+    .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
+    .badge-row { display: flex; gap: 16px; margin-bottom: 12px; }
+    .badge { font-size: 12px; color: #888; }
+    .badge-high { color: #d32f2f; }
+    .badge-med  { color: #f57c00; }
+    .badge-low  { color: #388e3c; }
+    .concern-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .concern-table thead tr { border-bottom: 2px solid #e0e0e0; }
+    .concern-table th { text-align: left; font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.5px; padding: 6px 8px 6px 0; }
+    .ct-sev  { padding: 8px 8px 8px 0; font-size: 13px; width: 42%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .ct-desc { padding: 8px 8px 8px 0; font-size: 13px; width: 42%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .ct-src  { padding: 8px 0; font-size: 12px; color: #bbb; width: 16%; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
     .concl-text { font-size: 16px; font-weight: 700; line-height: 1.8; margin: 16px 0 24px; }
     .cost-text { font-size: 22px; font-weight: 700; margin-top: 16px; }
     .map-section { margin-top: 24px; }
