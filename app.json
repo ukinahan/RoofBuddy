@@ -20,7 +20,8 @@
         "NSPhotoLibraryUsageDescription": "Roof Inspector needs photo library access to attach existing photos to inspections.",
         "NSPhotoLibraryAddUsageDescription": "Roof Inspector saves inspection photos to your photo library.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {

@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"name": "RoofBuddy",
+			"path": "."
+		}
+	],
+	"settings": {
+		"window.title": "RoofBuddy — ${activeEditorShort}${separator}${rootName}",
+		"terminal.integrated.cwd": "C:\\Users\\kinahanultan\\RoofInspector"
+	}
+}
