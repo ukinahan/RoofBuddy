@@ -57,6 +57,7 @@ export default function PhotoDetailScreen() {
   const [activeShape, setActiveShape] = useState<DrawingShape>('freehand');
   const [activeColor, setActiveColor] = useState('#FF3B30');
   const [strokeWidth, setStrokeWidth] = useState(3);
+  const [isDrawingActive, setIsDrawingActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -121,6 +122,7 @@ export default function PhotoDetailScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={{ paddingBottom: 120 }}
+        scrollEnabled={!isDrawingActive}
         keyboardShouldPersistTaps="handled">
 
         <View style={styles.modeBar}>
@@ -142,6 +144,8 @@ export default function PhotoDetailScreen() {
             drawings={photo.drawings ?? []}
             activeShape={activeShape} activeColor={activeColor} strokeWidth={strokeWidth}
             enabled={mode === 'draw'} onDrawingAdded={handleDrawingAdded}
+            onDrawStart={() => setIsDrawingActive(true)}
+            onDrawEnd={() => setIsDrawingActive(false)}
           />
           {mode === 'draw' && <Text style={styles.hintBadge}>Draw on the photo</Text>}
         </View>

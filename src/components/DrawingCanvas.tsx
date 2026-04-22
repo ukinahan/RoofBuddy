@@ -13,6 +13,8 @@ interface Props {
   strokeWidth: number;
   enabled: boolean;
   onDrawingAdded: (path: DrawingPath) => void;
+  onDrawStart?: () => void;
+  onDrawEnd?: () => void;
 }
 
 interface Point {
@@ -137,6 +139,8 @@ export default function DrawingCanvas({
   strokeWidth,
   enabled,
   onDrawingAdded,
+  onDrawStart,
+  onDrawEnd,
 }: Props) {
   const [livePoints, setLivePoints] = useState<Point[]>([]);
   const [liveStart, setLiveStart] = useState<Point | null>(null);
@@ -151,6 +155,7 @@ export default function DrawingCanvas({
   const onTouchStart = (e: GestureResponderEvent) => {
     if (!enabled) return;
     isDrawing.current = true;
+    onDrawStart?.();
     const p = getPoint(e);
     setLiveStart(p);
     setLiveEnd(p);
@@ -169,6 +174,7 @@ export default function DrawingCanvas({
   const onTouchEnd = () => {
     if (!enabled || !isDrawing.current || !liveStart || !liveEnd) return;
     isDrawing.current = false;
+    onDrawEnd?.();
 
     let data = '';
     if (activeShape === 'freehand') {
