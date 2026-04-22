@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Image, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { InspectionPhoto } from '../types';
 
 interface Props {
   photo: InspectionPhoto;
   onPress: () => void;
+  onDelete?: () => void;
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -13,7 +14,7 @@ const SEVERITY_COLOR: Record<string, string> = {
   low: '#388e3c',
 };
 
-export default function PhotoCard({ photo, onPress }: Props) {
+export default function PhotoCard({ photo, onPress, onDelete }: Props) {
   const highCount = photo.annotations.filter((a) => a.severity === 'high').length;
   const dominantColor =
     highCount > 0
@@ -25,6 +26,20 @@ export default function PhotoCard({ photo, onPress }: Props) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="cover" />
+
+      {/* Delete button */}
+      {onDelete && (
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Text style={styles.deleteBtnText}>×</Text>
+        </TouchableOpacity>
+      )}
 
       {/* AI badge */}
       {photo.aiAnalyzed && (
@@ -74,9 +89,22 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   aiBadgeText: { color: 'white', fontSize: 10, fontWeight: '700' },
+  deleteBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  deleteBtnText: { color: 'white', fontSize: 18, fontWeight: '700', lineHeight: 20 },
   countBadge: {
     position: 'absolute',
-    top: 6,
+    top: 36,
     right: 6,
     borderRadius: 10,
     minWidth: 22,

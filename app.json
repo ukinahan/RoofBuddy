@@ -2,7 +2,7 @@
   "expo": {
     "name": "Roof Report",
     "slug": "roof-inspector",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
         "NSPhotoLibraryAddUsageDescription": "Roof Report saves inspection photos to your photo library.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "13"
+      "buildNumber": "14"
     },
     "android": {
       "adaptiveIcon": {

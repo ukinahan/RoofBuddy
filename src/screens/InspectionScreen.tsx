@@ -72,6 +72,25 @@ export default function InspectionScreen() {
     navigation.navigate('Camera', { inspectionId });
   };
 
+  const handleDeletePhoto = (photoId: string) => {
+    if (!inspection) return;
+    Alert.alert('Delete Photo', 'Remove this photo from the inspection?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = {
+            ...inspection,
+            photos: inspection.photos.filter((p) => p.id !== photoId),
+          };
+          await updateInspection(updated);
+          setInspection(updated);
+        },
+      },
+    ]);
+  };
+
   const handleLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -128,6 +147,7 @@ export default function InspectionScreen() {
                 photoId: item.id,
               })
             }
+            onDelete={() => handleDeletePhoto(item.id)}
           />
         )}
       />
