@@ -142,3 +142,68 @@ A free Expo account is required at [expo.dev](https://expo.dev).
 | High | Red | Immediate repair required |
 | Medium | Orange | Repair within 3–6 months |
 | Low | Green | Monitor / cosmetic issue |
+
+---
+
+## Recent Updates (v1.2.x)
+
+- **v1.2.5** — Delete photos directly from the inspection screen (× button on each thumbnail)
+- **v1.2.4** — Vertical drawing strokes now register correctly; "Save Notes" returns to the photo grid
+- **v1.2.3** — Fixed drawing capture conflict with page scroll
+- **v1.2.2** — Replaced settings emoji with a clean white SVG gear icon
+- **v1.2.1** — Restored ability to scroll past the photo on the Photo Detail screen
+
+---
+
+## TestFlight — Beta Testing Instructions (iOS)
+
+The latest build is available on Apple TestFlight. Follow these steps to install and provide feedback.
+
+### 1. Install TestFlight
+
+1. On your **iPhone or iPad**, open the App Store
+2. Search for **TestFlight** (made by Apple Inc.)
+3. Tap **Get** to install
+
+### 2. Accept the invitation
+
+1. You'll receive an email invitation from Apple titled **"You're invited to test Roof Report"**
+2. Open the email **on your iPhone/iPad** (not on a computer)
+3. Tap **View in TestFlight** (or **Start Testing**)
+4. TestFlight will open and show the **Roof Report** app
+
+### 3. Install the app
+
+1. In TestFlight, tap **Accept** next to Roof Report
+2. Tap **Install** (or **Update** if you already have an older build)
+3. The app will install on your home screen with the name **Roof Report**
+
+### 4. Try it out
+
+1. Open **Roof Report** from your home screen
+2. Tap the **gear icon** (top-right) to set up your **Company Profile** (name, logo, contact info)
+3. From the home screen, tap **+ New Inspection**
+4. Fill in customer details and tap **Create Inspection**
+5. Tap **Camera** to capture roof photos, or **Library** to import existing ones
+6. Tap any photo thumbnail to open it, then:
+   - Use **Draw** mode to mark up issues with freehand, boxes, circles, or arrows
+   - Set **Severity Level** (None / Low / Medium / High)
+   - Add **Inspector Notes** and tap **Save Notes**
+7. Back on the inspection screen, tap **×** on any photo thumbnail to delete it
+8. When done, tap **Report** → **Generate PDF Report**
+9. Tap **Email to Customer** or **Share / Save**
+
+### 5. Send feedback
+
+In TestFlight, you can:
+- Take a screenshot and TestFlight will prompt you to share it with the developer
+- Tap the app in TestFlight and use **Send Beta Feedback** to write notes or attach screenshots
+- Or simply email feedback directly to the developer
+
+### Notes for Testers
+
+- The TestFlight build expires after 90 days — you'll get a new invite for each update
+- Updates may arrive every few days while we iterate on feedback
+- You may need to **delete the App Store version** (if installed) before installing the TestFlight version
+- Crashes are automatically reported to the developer via TestFlight
+
