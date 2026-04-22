@@ -254,9 +254,13 @@ export default function DrawingCanvas({
       pointerEvents={enabled ? 'auto' : 'none'}
       onStartShouldSetResponder={() => enabled}
       onMoveShouldSetResponder={() => enabled}
+      onStartShouldSetResponderCapture={() => enabled}
+      onMoveShouldSetResponderCapture={() => enabled}
+      onResponderTerminationRequest={() => false}
       onResponderGrant={onTouchStart}
       onResponderMove={onTouchMove}
       onResponderRelease={onTouchEnd}
+      onResponderTerminate={onTouchEnd}
     >
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         {drawings.map((d) => renderDrawing(d, d.id))}

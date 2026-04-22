@@ -86,6 +86,12 @@ export default function PhotoDetailScreen() {
     await savePhoto({ ...photo, notes });
   };
 
+  const handleSaveNotesAndExit = async () => {
+    if (!photo) return;
+    await savePhoto({ ...photo, notes });
+    navigation.goBack();
+  };
+
   const handleDrawingAdded = async (path: DrawingPath) => {
     if (!photo) return;
     await savePhoto({
@@ -217,7 +223,7 @@ export default function PhotoDetailScreen() {
           <TextInput style={styles.notesInput} placeholder="Add notes about this photo…" value={notes} onChangeText={setNotes} multiline numberOfLines={4} textAlignVertical="top" onBlur={handleSaveNotes}
             onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
           />
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveNotes} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveNotesAndExit} activeOpacity={0.85}>
             <Text style={styles.saveBtnText}>Save Notes</Text>
           </TouchableOpacity>
         </View>
