@@ -13,6 +13,7 @@ import CameraScreen from './src/screens/CameraScreen';
 import PhotoDetailScreen from './src/screens/PhotoDetailScreen';
 import ReportScreen from './src/screens/ReportScreen';
 import QuoteScreen from './src/screens/QuoteScreen';
+import CompanyProfileScreen from './src/screens/CompanyProfileScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -48,7 +49,7 @@ export default function App() {
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: 'Roof Inspections' }}
+          options={{ title: 'Roof Report' }}
         />
         <Stack.Screen
           name="NewInspection"
@@ -79,6 +80,11 @@ export default function App() {
           name="Quote"
           component={QuoteScreen}
           options={{ title: 'Customer Quote' }}
+        />
+        <Stack.Screen
+          name="CompanyProfile"
+          component={CompanyProfileScreen}
+          options={{ title: 'Company Profile' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

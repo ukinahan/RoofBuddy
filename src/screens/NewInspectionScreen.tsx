@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { v4 as uuidv4 } from 'uuid';
 import { RootStackParamList, Inspection } from '../types';
 import { addInspection } from '../services/storage';
+import { loadCompanyProfile } from '../services/company';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'NewInspection'>;
 
@@ -29,6 +30,14 @@ export default function NewInspectionScreen() {
   const [inspectorName, setInspectorName] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [defaultInspector, setDefaultInspector] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const profile = await loadCompanyProfile();
+      setDefaultInspector(profile.defaultPersonnel);
+    })();
+  }, []);
 
   const isValid = customerName.trim().length > 0 && address.trim().length > 0;
 
@@ -46,7 +55,7 @@ export default function NewInspectionScreen() {
       customerEmail: customerEmail.trim(),
       address: address.trim(),
       ref: ref.trim(),
-      inspectorName: inspectorName.trim() || 'Anthony Quinn - 086-8122692',
+      inspectorName: inspectorName.trim() || defaultInspector,
       date: now.split('T')[0],
       notes: notes.trim(),
       conditions: '',

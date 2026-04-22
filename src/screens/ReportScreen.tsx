@@ -120,10 +120,9 @@ export default function ReportScreen() {
     );
   }
 
-  const allAnnotations = inspection.photos.flatMap((p) => p.annotations);
-  const highCount = allAnnotations.filter((a) => a.severity === 'high').length;
-  const medCount = allAnnotations.filter((a) => a.severity === 'medium').length;
-  const lowCount = allAnnotations.filter((a) => a.severity === 'low').length;
+  const highCount = inspection.photos.filter((p) => p.severity === 'high').length;
+  const medCount = inspection.photos.filter((p) => p.severity === 'medium').length;
+  const lowCount = inspection.photos.filter((p) => p.severity === 'low').length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -222,14 +221,18 @@ export default function ReportScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Photos ({inspection.photos.length})</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-          {inspection.photos.map((p, idx) => (
+          {inspection.photos.map((p, idx) => {
+            const sev = p.severity || 'none';
+            const sevColor = sev === 'high' ? '#d32f2f' : sev === 'medium' ? '#f57c00' : sev === 'low' ? '#388e3c' : '#999';
+            return (
             <View key={p.id} style={styles.thumb}>
               <Image source={{ uri: p.uri }} style={styles.thumbImg} />
-              <View style={styles.thumbBadge}>
-                <Text style={styles.thumbBadgeText}>{p.annotations.length}</Text>
+              <View style={[styles.thumbBadge, { backgroundColor: sevColor }]}>
+                <Text style={styles.thumbBadgeText}>{sev === 'none' ? '–' : sev[0].toUpperCase()}</Text>
               </View>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       </View>
 

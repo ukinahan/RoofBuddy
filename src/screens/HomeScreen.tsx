@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,19 @@ export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('CompanyProfile')}
+          style={{ marginRight: 4, padding: 6 }}
+        >
+          <Text style={{ fontSize: 22, color: 'white' }}>⚙️</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const load = useCallback(async () => {
     const data = await loadInspections();

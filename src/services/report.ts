@@ -8,12 +8,14 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as MailComposer from 'expo-mail-composer';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Asset } from 'expo-asset';
-import { Inspection, InspectionPhoto, Annotation, DrawingPath } from '../types';
-import { COMPANY, TERMS_AND_CONDITIONS } from './company';
+import { Dimensions } from 'react-native';
+import { Inspection, InspectionPhoto, Annotation, DrawingPath, CompanyProfile } from '../types';
+import { loadCompanyProfile, getTermsAndConditions } from './company';
 import { addressToSatelliteUri } from './maps';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const SEVERITY_COLOR: Record<string, string> = {
   high: '#d32f2f',
@@ -83,16 +85,18 @@ function drawingToSvgElement(d: DrawingPath): string {
 
 // ─── HTML Builder ────────────────────────────────────────────────────────────
 
-async function getLogoDataUri(): Promise<string> {
+async function getLogoDataUri(customLogoUri?: string): Promise<string> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const asset = Asset.fromModule(require('../../assets/company-logo.png'));
-    await asset.downloadAsync();
-    if (!asset.localUri) return '';
-    const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    return `data:image/png;base64,${base64}`;
+    if (customLogoUri) {
+      const info = await FileSystem.getInfoAsync(customLogoUri);
+      if (info.exists) {
+        const base64 = await FileSystem.readAsStringAsync(customLogoUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        return `data:image/png;base64,${base64}`;
+      }
+    }
+    return '';
   } catch {
     return '';
   }
@@ -110,13 +114,14 @@ function fmtDateOrdinal(isoOrDate: string | Date): string {
 }
 
 async function buildHtml(inspection: Inspection): Promise<string> {
+  const co = await loadCompanyProfile();
   const [logoUri, satelliteUri] = await Promise.all([
-    getLogoDataUri(),
+    getLogoDataUri(co.logoUri),
     addressToSatelliteUri(inspection.address),
   ]);
   const logoImg = logoUri
     ? `<img src="${logoUri}" style="width:100%;max-width:300px;height:auto;display:block;margin-bottom:0;"/>`
-    : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:0;">A&amp;A QUINN<br/><span style="font-size:14px;letter-spacing:2px;">ROOFING SOLUTIONS</span></div>`;
+    : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:0;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:14px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
 
   const surveyDateStr = fmtDateOrdinal(inspection.date);
   const reportDateStr = fmtDateOrdinal(new Date());
@@ -139,13 +144,13 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <div class="cover-year">${year}</div>
       <div class="cover-co" style="margin-top:200px;">
         ${inspection.inspectorName ? `<div class="cover-inspector">${escapeHtml(inspection.inspectorName)}</div>` : ''}
-        <div>${escapeHtml(COMPANY.nameLine1)}</div>
-        <div>${escapeHtml(COMPANY.nameLine2)}</div>
-        ${COMPANY.addressLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
-        <div>${COMPANY.eircode}</div>
-        <div class="cover-link" style="margin-top:10px;">${COMPANY.website}</div>
-        <div class="cover-link">${COMPANY.email}</div>
-        <div style="margin-top:14px;">${COMPANY.tel}</div>
+        <div>${escapeHtml(co.nameLine1)}</div>
+        <div>${escapeHtml(co.nameLine2)}</div>
+        ${co.addressLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
+        <div>${co.eircode}</div>
+        <div class="cover-link" style="margin-top:10px;">${co.website}</div>
+        <div class="cover-link">${co.email}</div>
+        <div style="margin-top:14px;">${co.tel}</div>
       </div>
       <div class="cover-date" style="margin-top:80px;">${surveyDateStr}</div>
     </div>
@@ -159,7 +164,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     ['Survey Completed:', surveyDateStr],
     ['Conditions:', escapeHtml((inspection as any).conditions || '')],
     ['Scope of works:', escapeHtml((inspection as any).scopeOfWorks || 'Roof Survey')],
-    ['Quinn Personnel:', escapeHtml(inspection.inspectorName || COMPANY.defaultPersonnel)],
+    ['Personnel:', escapeHtml(inspection.inspectorName || co.defaultPersonnel)],
     ['Overview', escapeHtml((inspection as any).overview || inspection.notes || '')],
     ['Report Date:', reportDateStr],
     ['Report No:', escapeHtml((inspection as any).reportNo || '01')],
@@ -184,39 +189,36 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const photoPageHtmlArr: string[] = [];
 
   const buildPhotoBlock = (photo: typeof inspection.photos[0], picNum: number, uri: string | null): string => {
-    const highC = photo.annotations.filter((a) => a.severity === 'high');
-    const medC  = photo.annotations.filter((a) => a.severity === 'medium');
-    const lowC  = photo.annotations.filter((a) => a.severity === 'low');
-    const concernRows = photo.annotations.map((a) =>
-      `<tr>
-        <td class="ct-sev" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(SEVERITY_LABEL[a.severity])}</td>
-        <td class="ct-desc" style="color:${SEVERITY_COLOR[a.severity]}">${escapeHtml(a.note)}</td>
-      </tr>`
-    ).join('');
+    const severity = (photo as any).severity || 'none';
+    const severityColor = SEVERITY_COLOR[severity] || '';
+    const severityLabel = SEVERITY_LABEL[severity] || '';
+
+    // Build SVG overlay for drawings
+    const drawings = photo.drawings ?? [];
+    const vp = photo.drawingViewport ?? { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.75 };
+    let drawingSvg = '';
+    if (drawings.length > 0) {
+      const svgElements = drawings.map(drawingToSvgElement).join('');
+      drawingSvg = `<svg class="drawing-overlay" viewBox="0 0 ${vp.width} ${vp.height}" preserveAspectRatio="none">${svgElements}</svg>`;
+    }
+
     return `
       <div class="photo-block">
         <h2 class="photo-title">Photo ${picNum}</h2>
         <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
         <div class="photo-wrap">
           ${uri
-            ? `<img src="${uri}" class="pic-img"/>`
+            ? `<div class="pic-container"><img src="${uri}" class="pic-img"/>${drawingSvg}</div>`
             : `<div class="pic-missing">No image available</div>`}
         </div>
+        ${severity !== 'none' ? `
+        <div class="severity-badge" style="border-left: 4px solid ${severityColor}; padding: 8px 14px; margin-bottom: 12px; background: ${severityColor}11;">
+          <span style="color:${severityColor}; font-weight:700; font-size:13px;">Severity: ${severityLabel}</span>
+        </div>` : ''}
         ${photo.notes ? `
         <div class="notes-box">
           <strong>Inspector Notes:</strong><br/>${escapeHtml(photo.notes)}
         </div>` : ''}
-        ${photo.annotations.length > 0 ? `
-        <h3 class="concern-heading">Concerns Identified (${photo.annotations.length})</h3>
-        <div class="badge-row">
-          ${highC.length > 0 ? `<span class="badge badge-high"><span class="dot dot-high"></span>${highC.length} High</span>` : ''}
-          ${medC.length  > 0 ? `<span class="badge badge-med"><span class="dot dot-med"></span>${medC.length} Medium</span>` : ''}
-          ${lowC.length  > 0 ? `<span class="badge badge-low"><span class="dot dot-low"></span>${lowC.length} Low</span>` : ''}
-        </div>
-        <table class="concern-table">
-          <thead><tr><th>SEVERITY</th><th>DESCRIPTION</th></tr></thead>
-          <tbody>${concernRows}</tbody>
-        </table>` : ''}
       </div>`;
   };
 
@@ -238,14 +240,14 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const hasConcl = !!((inspection as any).conclusion || cost > 0);
   let conclusionPage = '';
   if (hasConcl) {
-    const vat = cost * COMPANY.vatRate;
+    const vat = cost * co.vatRate;
     const total = cost + vat;
     const fe = (n: number) => '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     conclusionPage = `
     <div class="page">
       <div class="page-inner">
         ${(inspection as any).conclusion ? `<h2 class="sec-heading">Conclusion</h2><p class="concl-text">${escapeHtml((inspection as any).conclusion)}</p>` : ''}
-        ${cost > 0 ? `<h2 class="sec-heading" style="margin-top:40px;">Cost of Repairs</h2><p class="cost-text">${fe(cost)} Plus VAT @ ${(COMPANY.vatRate * 100).toFixed(1)}% = ${fe(total)}</p>` : ''}
+        ${cost > 0 ? `<h2 class="sec-heading" style="margin-top:40px;">Cost of Repairs</h2><p class="cost-text">${fe(cost)} Plus VAT @ ${(co.vatRate * 100).toFixed(1)}% = ${fe(total)}</p>` : ''}
       </div>
     </div>`;
   }
@@ -277,7 +279,9 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-block { page-break-inside: avoid; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8; }
     .photo-block:last-child { border-bottom: none; margin-bottom: 0; }
     .photo-wrap { margin-bottom: 38px; }
-    .pic-img { display: block; width: 69%; height: auto; margin: 0 auto; transform: scaleY(1.1); transform-origin: top center; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
+    .pic-container { position: relative; width: 69%; margin: 0 auto; }
+    .pic-img { display: block; width: 100%; height: auto; transform: scaleY(1.1); transform-origin: top center; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
+    .drawing-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
     .concern-heading { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 8px; }
@@ -349,17 +353,18 @@ export async function emailReport(inspection: Inspection, pdfUri: string): Promi
 const formatEuro = (n: number) =>
   '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-function buildQuoteHtml(inspection: Inspection, logoUri: string = ''): string {
+function buildQuoteHtml(inspection: Inspection, co: CompanyProfile, logoUri: string = ''): string {
+  const tAndC = getTermsAndConditions(co);
   const items = inspection.quote?.lineItems ?? [];
   const subTotal = items.reduce((s, i) => s + i.totalPrice, 0);
-  const vat = subTotal * COMPANY.vatRate;
+  const vat = subTotal * co.vatRate;
   const grandTotal = subTotal + vat;
 
   const dateFormatted = fmtDateOrdinal(inspection.date);
 
   const logoHtml = logoUri
     ? `<img src="${logoUri}" style="max-width:180px;height:auto;display:block;margin:0 auto 10px;"/>`
-    : `<div style="font-size:20px;font-weight:900;color:#1a3c5e;">A&amp;A QUINN<br/><span style="font-size:12px;letter-spacing:2px;">ROOFING SOLUTIONS LIMITED</span></div>`;
+    : `<div style="font-size:20px;font-weight:900;color:#1a3c5e;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:12px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
 
   // ── Page 1: Cover letter ─────────────────────────────────────────────────
   const coverPage = `
@@ -367,8 +372,8 @@ function buildQuoteHtml(inspection: Inspection, logoUri: string = ''): string {
     <!-- Company header -->
     <div class="company-header">
       ${logoHtml}
-      <div class="company-services">${escapeHtml(COMPANY.services)}</div>
-      <div class="company-contact">${escapeHtml(COMPANY.address)} &nbsp;&nbsp; Tel: ${COMPANY.tel} &nbsp;&nbsp; ${COMPANY.email}</div>
+      <div class="company-services">${escapeHtml(co.services)}</div>
+      <div class="company-contact">${escapeHtml(co.address)} &nbsp;&nbsp; Tel: ${co.tel} &nbsp;&nbsp; ${co.email}</div>
     </div>
 
     <h1 class="quotation-title">QUOTATION</h1>
@@ -387,12 +392,12 @@ function buildQuoteHtml(inspection: Inspection, logoUri: string = ''): string {
     <p class="letter-body">Please now find attached our quotation for the works on ${escapeHtml(inspection.ref || 'the above property')}.</p>
     <p class="letter-body">If you have any queries please don't hesitate to contact us.</p>
 
-    <p class="letter-sign">Yours sincerely<br/>${escapeHtml(COMPANY.shortName)}</p>
+    <p class="letter-sign">Yours sincerely<br/>${escapeHtml(co.shortName)}</p>
 
     <div class="signature-block">
       <div class="signature-line"></div>
-      <p class="signatory-name">${escapeHtml(COMPANY.signatoryName)}</p>
-      <p class="signatory-title">${escapeHtml(COMPANY.signatoryTitle)}</p>
+      <p class="signatory-name">${escapeHtml(co.signatoryName)}</p>
+      <p class="signatory-title">${escapeHtml(co.signatoryTitle)}</p>
     </div>
   </div>`;
 
@@ -430,7 +435,7 @@ function buildQuoteHtml(inspection: Inspection, logoUri: string = ''): string {
         <td class="totals-value">${formatEuro(subTotal)}</td>
       </tr>
       <tr>
-        <td class="totals-label">VAT @ ${(COMPANY.vatRate * 100).toFixed(1)}%</td>
+        <td class="totals-label">VAT @ ${(co.vatRate * 100).toFixed(1)}%</td>
         <td class="totals-value">${formatEuro(vat)}</td>
       </tr>
       <tr class="grand-total-row">
@@ -443,7 +448,7 @@ function buildQuoteHtml(inspection: Inspection, logoUri: string = ''): string {
     <div class="terms-section">
       <p class="terms-title"><strong>Terms &amp; Conditions</strong></p>
       <ul class="terms-list">
-        ${TERMS_AND_CONDITIONS.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
+        ${tAndC.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
       </ul>
     </div>
   </div>`;
@@ -504,8 +509,9 @@ function buildQuoteHtml(inspection: Inspection, logoUri: string = ''): string {
 
 /** Renders the 2-page customer quotation (cover letter + quote table) to PDF. */
 export async function generateQuotePDF(inspection: Inspection): Promise<string> {
-  const logoUri = await getLogoDataUri();
-  const html = buildQuoteHtml(inspection, logoUri);
+  const co = await loadCompanyProfile();
+  const logoUri = await getLogoDataUri(co.logoUri);
+  const html = buildQuoteHtml(inspection, co, logoUri);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   return uri;
 }
@@ -523,12 +529,13 @@ export async function shareQuotePDF(pdfUri: string): Promise<void> {
 
 /** Send the quote PDF — uses Mail if available, falls back to share sheet (Outlook, Gmail, AirDrop, etc). */
 export async function emailQuote(inspection: Inspection, pdfUri: string): Promise<void> {
+  const co = await loadCompanyProfile();
   const available = await MailComposer.isAvailableAsync();
   if (available) {
     await MailComposer.composeAsync({
       recipients: inspection.customerEmail ? [inspection.customerEmail] : [],
       subject: `Quotation — ${inspection.ref || inspection.address}`,
-      body: `Dear ${inspection.customerName},\n\nPlease find attached our quotation for the works on ${inspection.ref || inspection.address}.\n\nIf you have any queries please don't hesitate to contact us.\n\nYours sincerely,\n${COMPANY.signatoryName}\n${COMPANY.signatoryTitle}\n${COMPANY.shortName}\nTel: ${COMPANY.tel}\nEmail: ${COMPANY.email}`,
+      body: `Dear ${inspection.customerName},\n\nPlease find attached our quotation for the works on ${inspection.ref || inspection.address}.\n\nIf you have any queries please don't hesitate to contact us.\n\nYours sincerely,\n${co.signatoryName}\n${co.signatoryTitle}\n${co.shortName}\nTel: ${co.tel}\nEmail: ${co.email}`,
       attachments: [pdfUri],
     });
   } else {

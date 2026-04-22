@@ -18,6 +18,7 @@ function normalizeInspection(i: Inspection): Inspection {
     photos: (i.photos ?? []).map((p) => ({
       annotations: [],
       drawings: [],
+      severity: 'none',
       ...p,
     })),
   };

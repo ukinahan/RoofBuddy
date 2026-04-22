@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Modal,
   KeyboardAvoidingView,
   Platform,
   Dimensions,
@@ -17,10 +16,8 @@ import {
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { v4 as uuidv4 } from 'uuid';
-import { RootStackParamList, Inspection, InspectionPhoto, Annotation, DrawingPath, DrawingShape } from '../types';
+import { RootStackParamList, Inspection, InspectionPhoto, DrawingPath, DrawingShape, PhotoSeverity } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
-import AnnotationPin from '../components/AnnotationPin';
 import DrawingCanvas from '../components/DrawingCanvas';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'PhotoDetail'>;
@@ -29,13 +26,14 @@ type Route = RouteProp<RootStackParamList, 'PhotoDetail'>;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const IMAGE_HEIGHT = SCREEN_WIDTH * 0.75;
 
-const SEVERITY_OPTIONS: Array<{ value: Annotation['severity']; label: string; color: string }> = [
-  { value: 'high', label: 'High', color: '#d32f2f' },
-  { value: 'medium', label: 'Medium', color: '#f57c00' },
-  { value: 'low', label: 'Low', color: '#388e3c' },
-];
-
 const DRAW_COLORS = ['#FF3B30', '#FF9500', '#34C759', '#007AFF', '#AF52DE', '#FFCC00', '#FFFFFF'];
+
+const SEVERITY_OPTIONS: Array<{ value: PhotoSeverity; label: string; color: string }> = [
+  { value: 'none', label: 'None', color: '#999' },
+  { value: 'low', label: 'Low', color: '#388e3c' },
+  { value: 'medium', label: 'Medium', color: '#f57c00' },
+  { value: 'high', label: 'High', color: '#d32f2f' },
+];
 
 const SHAPE_TOOLS: Array<{ shape: DrawingShape; icon: string; label: string }> = [
   { shape: 'freehand', icon: '✏️', label: 'Draw' },
@@ -44,7 +42,7 @@ const SHAPE_TOOLS: Array<{ shape: DrawingShape; icon: string; label: string }> =
   { shape: 'arrow', icon: '→', label: 'Arrow' },
 ];
 
-type ActiveMode = 'view' | 'pin' | 'draw';
+type ActiveMode = 'view' | 'draw';
 
 export default function PhotoDetailScreen() {
   const navigation = useNavigation<Nav>();
@@ -56,15 +54,10 @@ export default function PhotoDetailScreen() {
   const [notes, setNotes] = useState('');
   const [mode, setMode] = useState<ActiveMode>('view');
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [pendingX, setPendingX] = useState(0);
-  const [pendingY, setPendingY] = useState(0);
-  const [annotationNote, setAnnotationNote] = useState('');
-  const [annotationSeverity, setAnnotationSeverity] = useState<Annotation['severity']>('medium');
-
   const [activeShape, setActiveShape] = useState<DrawingShape>('freehand');
   const [activeColor, setActiveColor] = useState('#FF3B30');
   const [strokeWidth, setStrokeWidth] = useState(3);
+  const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
     const insp = await getInspection(inspectionId);
@@ -92,47 +85,6 @@ export default function PhotoDetailScreen() {
     await savePhoto({ ...photo, notes });
   };
 
-  const handleImageTap = (event: { nativeEvent: { locationX: number; locationY: number } }) => {
-    if (mode !== 'pin') return;
-    const x = event.nativeEvent.locationX / SCREEN_WIDTH;
-    const y = event.nativeEvent.locationY / IMAGE_HEIGHT;
-    setPendingX(Math.max(0, Math.min(1, x)));
-    setPendingY(Math.max(0, Math.min(1, y)));
-    setAnnotationNote('');
-    setAnnotationSeverity('medium');
-    setModalVisible(true);
-  };
-
-  const handleAddAnnotation = async () => {
-    if (!photo || !annotationNote.trim()) {
-      Alert.alert('Note Required', 'Please describe the area of concern.');
-      return;
-    }
-    const newAnnotation: Annotation = {
-      id: uuidv4(),
-      x: pendingX,
-      y: pendingY,
-      note: annotationNote.trim(),
-      severity: annotationSeverity,
-      createdAt: new Date().toISOString(),
-    };
-    await savePhoto({ ...photo, annotations: [...photo.annotations, newAnnotation] });
-    setModalVisible(false);
-  };
-
-  const handleDeleteAnnotation = async (annotationId: string) => {
-    if (!photo) return;
-    Alert.alert('Remove Marker', 'Remove this concern marker?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive',
-        onPress: async () => {
-          await savePhoto({ ...photo, annotations: photo.annotations.filter((a) => a.id !== annotationId) });
-        },
-      },
-    ]);
-  };
-
   const handleDrawingAdded = async (path: DrawingPath) => {
     if (!photo) return;
     await savePhoto({
@@ -157,18 +109,23 @@ export default function PhotoDetailScreen() {
     ]);
   };
 
+  const handleSeverityChange = async (severity: PhotoSeverity) => {
+    if (!photo) return;
+    await savePhoto({ ...photo, severity });
+  };
+
   if (!photo) {
     return <View style={styles.centered}><ActivityIndicator size="large" color="#1a3c5e" /></View>;
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} scrollEnabled={mode === 'view'}>
+      <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled">
 
         <View style={styles.modeBar}>
           {([
             { m: 'view' as ActiveMode, icon: '👁', label: 'View' },
-            { m: 'pin' as ActiveMode, icon: '📍', label: 'Pin' },
             { m: 'draw' as ActiveMode, icon: '✏️', label: 'Draw' },
           ] as const).map(({ m, icon, label }) => (
             <TouchableOpacity key={m} style={[styles.modeBtn, mode === m && styles.modeBtnActive]} onPress={() => setMode(m)}>
@@ -179,19 +136,13 @@ export default function PhotoDetailScreen() {
         </View>
 
         <View style={styles.imageContainer}>
-          <TouchableOpacity onPress={handleImageTap} activeOpacity={mode === 'pin' ? 0.9 : 1} disabled={mode === 'draw'}>
-            <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="cover" />
-          </TouchableOpacity>
+          <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="cover" />
           <DrawingCanvas
             width={SCREEN_WIDTH} height={IMAGE_HEIGHT}
             drawings={photo.drawings ?? []}
             activeShape={activeShape} activeColor={activeColor} strokeWidth={strokeWidth}
             enabled={mode === 'draw'} onDrawingAdded={handleDrawingAdded}
           />
-          {photo.annotations.map((ann) => (
-            <AnnotationPin key={ann.id} annotation={ann} imageWidth={SCREEN_WIDTH} imageHeight={IMAGE_HEIGHT} onLongPress={() => handleDeleteAnnotation(ann.id)} />
-          ))}
-          {mode === 'pin' && <Text style={styles.hintBadge}>Tap to place a concern pin</Text>}
           {mode === 'draw' && <Text style={styles.hintBadge}>Draw on the photo</Text>}
         </View>
 
@@ -229,63 +180,45 @@ export default function PhotoDetailScreen() {
           </View>
         )}
 
-        {photo.annotations.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Concern Pins ({photo.annotations.length})</Text>
-            {photo.annotations.map((ann, idx) => (
-              <View key={ann.id} style={styles.annotationRow}>
-                <View style={[styles.dot, { backgroundColor: SEVERITY_OPTIONS.find((s) => s.value === ann.severity)?.color }]} />
-                <View style={styles.annotationTextContainer}>
-                  <Text style={styles.annotationNote}>{idx + 1}. {ann.note}</Text>
-                  <Text style={styles.annotationMeta}>{ann.severity.charAt(0).toUpperCase() + ann.severity.slice(1)}</Text>
-                </View>
-                <TouchableOpacity onPress={() => handleDeleteAnnotation(ann.id)} style={styles.deleteBtn}>
-                  <Text style={styles.deleteBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
+        {/* Severity */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Severity Level</Text>
+          <View style={styles.severityRow}>
+            {SEVERITY_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.severityBtn,
+                  { borderColor: opt.color },
+                  (photo.severity || 'none') === opt.value && { backgroundColor: opt.color },
+                ]}
+                onPress={() => handleSeverityChange(opt.value)}
+              >
+                <Text
+                  style={[
+                    styles.severityBtnText,
+                    { color: (photo.severity || 'none') === opt.value ? 'white' : opt.color },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
-        )}
+        </View>
 
+        {/* Notes */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Inspector Notes</Text>
-          <TextInput style={styles.notesInput} placeholder="Add notes about this photo…" value={notes} onChangeText={setNotes} multiline numberOfLines={4} textAlignVertical="top" onBlur={handleSaveNotes} />
+          <TextInput style={styles.notesInput} placeholder="Add notes about this photo…" value={notes} onChangeText={setNotes} multiline numberOfLines={4} textAlignVertical="top" onBlur={handleSaveNotes}
+            onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
+          />
           <TouchableOpacity style={styles.saveBtn} onPress={handleSaveNotes} activeOpacity={0.85}>
             <Text style={styles.saveBtnText}>Save Notes</Text>
           </TouchableOpacity>
         </View>
 
       </ScrollView>
-
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>Mark Area of Concern</Text>
-                <Text style={styles.modalLabel}>Severity</Text>
-                <View style={styles.severityRow}>
-                  {SEVERITY_OPTIONS.map((opt) => (
-                    <TouchableOpacity key={opt.value} style={[styles.severityBtn, { borderColor: opt.color }, annotationSeverity === opt.value && { backgroundColor: opt.color }]} onPress={() => setAnnotationSeverity(opt.value)}>
-                      <Text style={[styles.severityBtnText, { color: annotationSeverity === opt.value ? 'white' : opt.color }]}>{opt.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <Text style={styles.modalLabel}>Description</Text>
-                <TextInput style={styles.modalInput} placeholder="Describe the issue (e.g. Missing shingles, cracked flashing)" value={annotationNote} onChangeText={setAnnotationNote} multiline numberOfLines={3} textAlignVertical="top" />
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.modalCancel} onPress={() => setModalVisible(false)}>
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.modalAdd} onPress={handleAddAnnotation}>
-                    <Text style={styles.modalAddText}>Add Pin</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -322,27 +255,10 @@ const styles = StyleSheet.create({
   drawActionText: { color: 'white', fontSize: 13, fontWeight: '600' },
   section: { margin: 16, backgroundColor: 'white', borderRadius: 12, padding: 16 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#1a3c5e', marginBottom: 12 },
-  annotationRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4, marginRight: 10 },
-  annotationTextContainer: { flex: 1 },
-  annotationNote: { fontSize: 13, color: '#222', lineHeight: 18 },
-  annotationMeta: { fontSize: 11, color: '#888', marginTop: 2 },
-  deleteBtn: { padding: 4 },
-  deleteBtnText: { color: '#FF3B30', fontSize: 14, fontWeight: '700' },
+  severityRow: { flexDirection: 'row', gap: 8 },
+  severityBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 2, alignItems: 'center' },
+  severityBtnText: { fontWeight: '700', fontSize: 13 },
   notesInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, padding: 10, fontSize: 14, minHeight: 80, color: '#222', marginBottom: 10 },
   saveBtn: { backgroundColor: '#1a3c5e', paddingVertical: 11, borderRadius: 8, alignItems: 'center' },
   saveBtnText: { color: 'white', fontWeight: '700', fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1a3c5e', marginBottom: 16 },
-  modalLabel: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
-  severityRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  severityBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 2, alignItems: 'center' },
-  severityBtnText: { fontWeight: '700', fontSize: 14 },
-  modalInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, padding: 10, fontSize: 14, minHeight: 80, color: '#222', marginBottom: 20, textAlignVertical: 'top' },
-  modalButtons: { flexDirection: 'row', gap: 12 },
-  modalCancel: { flex: 1, paddingVertical: 13, borderRadius: 10, backgroundColor: '#f0f0f0', alignItems: 'center' },
-  modalCancelText: { fontWeight: '600', color: '#555', fontSize: 15 },
-  modalAdd: { flex: 2, paddingVertical: 13, borderRadius: 10, backgroundColor: '#1a3c5e', alignItems: 'center' },
-  modalAddText: { fontWeight: '700', color: 'white', fontSize: 15 },
 });

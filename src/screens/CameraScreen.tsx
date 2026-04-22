@@ -60,6 +60,7 @@ export default function CameraScreen() {
         uri: dest,
         takenAt: new Date().toISOString(),
         notes: '',
+        severity: 'none',
         annotations: [],
         drawings: [],
       };

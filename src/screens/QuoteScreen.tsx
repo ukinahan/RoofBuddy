@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,10 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { v4 as uuidv4 } from 'uuid';
-import { RootStackParamList, Inspection, QuoteLineItem } from '../types';
+import { RootStackParamList, Inspection, QuoteLineItem, CompanyProfile } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
 import { generateQuotePDF, shareQuotePDF, emailQuote } from '../services/report';
-import { COMPANY } from '../services/company';
+import { loadCompanyProfile, DEFAULT_COMPANY } from '../services/company';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Quote'>;
 type Route = RouteProp<RootStackParamList, 'Quote'>;
@@ -37,6 +37,7 @@ export default function QuoteScreen() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(DEFAULT_COMPANY);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -44,6 +45,13 @@ export default function QuoteScreen() {
   const [fieldQty, setFieldQty] = useState('');
   const [fieldDesc, setFieldDesc] = useState('');
   const [fieldPrice, setFieldPrice] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const profile = await loadCompanyProfile();
+      setCompanyProfile(profile);
+    })();
+  }, []);
 
   const load = useCallback(async () => {
     const data = await getInspection(inspectionId);
@@ -148,7 +156,7 @@ export default function QuoteScreen() {
 
   const items = inspection.quote.lineItems;
   const subTotal = items.reduce((s, i) => s + i.totalPrice, 0);
-  const vat = subTotal * COMPANY.vatRate;
+  const vat = subTotal * companyProfile.vatRate;
   const grandTotal = subTotal + vat;
 
   return (
@@ -196,7 +204,7 @@ export default function QuoteScreen() {
               <Text style={styles.totalValue}>{formatCurrency(subTotal)}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>VAT @ {(COMPANY.vatRate * 100).toFixed(1)}%</Text>
+              <Text style={styles.totalLabel}>VAT @ {(companyProfile.vatRate * 100).toFixed(1)}%</Text>
               <Text style={styles.totalValue}>{formatCurrency(vat)}</Text>
             </View>
             <View style={[styles.totalRow, styles.grandTotalRow]}>

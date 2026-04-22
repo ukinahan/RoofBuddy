@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Roof Inspector",
+    "name": "Roof Report",
     "slug": "roof-inspector",
-    "version": "1.0.0",
+    "version": "1.2.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,12 +16,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.roofinspector.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Roof Inspector needs camera access to take photos of roofs for inspection reports.",
-        "NSPhotoLibraryUsageDescription": "Roof Inspector needs photo library access to attach existing photos to inspections.",
-        "NSPhotoLibraryAddUsageDescription": "Roof Inspector saves inspection photos to your photo library.",
+        "NSCameraUsageDescription": "Roof Report needs camera access to take photos of roofs for inspection reports.",
+        "NSPhotoLibraryUsageDescription": "Roof Report needs photo library access to attach existing photos to inspections.",
+        "NSPhotoLibraryAddUsageDescription": "Roof Report saves inspection photos to your photo library.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "3"
+      "buildNumber": "10"
     },
     "android": {
       "adaptiveIcon": {

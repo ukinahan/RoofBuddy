@@ -1,40 +1,69 @@
-// ─── A&A Quinn Roofing Solutions — Company Constants ─────────────────────────
+// ─── Company Profile — Configurable via Settings ────────────────────────────
 //
-// LOGO: Save the company logo JPEG to assets/company-logo.jpg
-// The PDF will automatically embed it.
+// All fields start blank. Users configure their company details
+// from the Company Profile screen on first launch.
 
-export const COMPANY = {
-  name: 'A&A Quinn Roofing Solutions Limited',
-  shortName: 'A&A Quinn Roofing Solutions',
-  nameLine1: 'A&A Quinn Roofing',
-  nameLine2: 'Solutions Ltd.',
-  services: 'Copper Roofing | Zinc Roofing | PVC Roofing | Aluminium Roofing | Torch-On Systems',
-  address: 'Newcastle, Crossabeg, Co. Wexford',
-  addressLines: ['Newcastle', 'Crossabeg', 'Wexford'],
-  eircode: 'W35 Y567',
-  tel: '(053) 912-8888',
-  telCompact: '(053) 912-8888',
-  email: 'info@quinnroofing.ie',
-  website: 'www.quinnroofing.ie',
-  c2Number: '425339904',
-  vatNumber: 'IE9736299',
-  vatRate: 0.135,                        // 13.5% — do not change
-  signatoryName: 'Anthony Quinn',
-  signatoryTitle: 'Managing Director',
-  defaultPersonnel: 'Anthony Quinn - 086-8122692',
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CompanyProfile } from '../types';
+
+const PROFILE_KEY = '@roof_inspector:company_profile';
+
+export const DEFAULT_COMPANY: CompanyProfile = {
+  name: '',
+  shortName: '',
+  nameLine1: '',
+  nameLine2: '',
+  services: '',
+  address: '',
+  addressLines: [],
+  eircode: '',
+  tel: '',
+  email: '',
+  website: '',
+  c2Number: '',
+  vatNumber: '',
+  vatRate: 0.135,
+  signatoryName: '',
+  signatoryTitle: '',
+  defaultPersonnel: '',
   depositPercent: 40,
   quoteValidDays: 30,
+  logoUri: '',
 };
 
-export const TERMS_AND_CONDITIONS: string[] = [
-  'Deposit of 40% required',
-  'Project is subject to re-measure upon completion',
-  'Our company carries Employers & Public Liability Insurance and Contractors All Risk Policy.',
-  'All our Employees are Safepass Certified',
-  'Main Contractor to provide Attendance, Scaffolding, Access, Temporary Power, Parking, Hoisting and Welfare Facilities etc.',
-  'Membership of CWPS – Employers Pension Fund',
-  `Our C2 Number is ${COMPANY.c2Number}`,
-  `VAT (if applicable) on above is charged at ${(COMPANY.vatRate * 100).toFixed(1)}%`,
-  `Our VAT No. ${COMPANY.vatNumber}`,
-  `This price is valid for ${COMPANY.quoteValidDays} days`,
-];
+/** Load the saved company profile, falling back to defaults for any missing fields. */
+export async function loadCompanyProfile(): Promise<CompanyProfile> {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_KEY);
+    if (!raw) return { ...DEFAULT_COMPANY };
+    const saved = JSON.parse(raw) as Partial<CompanyProfile>;
+    return { ...DEFAULT_COMPANY, ...saved };
+  } catch {
+    return { ...DEFAULT_COMPANY };
+  }
+}
+
+/** Persist the company profile. */
+export async function saveCompanyProfile(profile: CompanyProfile): Promise<void> {
+  await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+/** Generate terms & conditions from the profile. */
+export function getTermsAndConditions(profile: CompanyProfile): string[] {
+  return [
+    `Deposit of ${profile.depositPercent}% required`,
+    'Project is subject to re-measure upon completion',
+    'Our company carries Employers & Public Liability Insurance and Contractors All Risk Policy.',
+    'All our Employees are Safepass Certified',
+    'Main Contractor to provide Attendance, Scaffolding, Access, Temporary Power, Parking, Hoisting and Welfare Facilities etc.',
+    'Membership of CWPS – Employers Pension Fund',
+    ...(profile.c2Number ? [`Our C2 Number is ${profile.c2Number}`] : []),
+    `VAT (if applicable) on above is charged at ${(profile.vatRate * 100).toFixed(1)}%`,
+    ...(profile.vatNumber ? [`Our VAT No. ${profile.vatNumber}`] : []),
+    `This price is valid for ${profile.quoteValidDays} days`,
+  ];
+}
+
+// Legacy exports for backward compatibility during migration
+export const COMPANY = DEFAULT_COMPANY;
+export const TERMS_AND_CONDITIONS = getTermsAndConditions(DEFAULT_COMPANY);

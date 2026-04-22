@@ -59,6 +59,7 @@ export default function InspectionScreen() {
       uri,
       takenAt: new Date().toISOString(),
       notes: '',
+      severity: 'none',
       annotations: [],
       drawings: [],
     };

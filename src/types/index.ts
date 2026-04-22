@@ -24,6 +24,8 @@ export interface DrawingPath {
 }
 
 // ─── Photo ───────────────────────────────────────────────────────────────────
+export type PhotoSeverity = 'none' | 'low' | 'medium' | 'high';
+
 export interface InspectionPhoto {
   id: string;
   /** Local file URI saved by expo-file-system */
@@ -32,6 +34,8 @@ export interface InspectionPhoto {
   takenAt: string;
   /** Free-text notes typed by the inspector for this photo */
   notes: string;
+  /** Overall severity rating for this photo */
+  severity: PhotoSeverity;
   annotations: Annotation[];
   drawings: DrawingPath[];
   /** Pixel dimensions of the drawing canvas when drawings were made */
@@ -88,6 +92,31 @@ export interface Inspection {
   updatedAt: string;
 }
 
+// ─── Company Profile ─────────────────────────────────────────────────────────
+export interface CompanyProfile {
+  name: string;
+  shortName: string;
+  nameLine1: string;
+  nameLine2: string;
+  services: string;
+  address: string;
+  addressLines: string[];
+  eircode: string;
+  tel: string;
+  email: string;
+  website: string;
+  c2Number: string;
+  vatNumber: string;
+  vatRate: number;
+  signatoryName: string;
+  signatoryTitle: string;
+  defaultPersonnel: string;
+  depositPercent: number;
+  quoteValidDays: number;
+  /** Local file URI of custom logo, or empty to use bundled default */
+  logoUri: string;
+}
+
 // ─── Navigation ──────────────────────────────────────────────────────────────
 export type RootStackParamList = {
   Home: undefined;
@@ -97,6 +126,7 @@ export type RootStackParamList = {
   PhotoDetail: { inspectionId: string; photoId: string };
   Report: { inspectionId: string };
   Quote: { inspectionId: string };
+  CompanyProfile: undefined;
 };
 
 
