@@ -170,6 +170,30 @@ export default function InspectionScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.iconBtn}
+          onPress={() => navigation.navigate('BulkImport', { inspectionId })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.iconEmoji}>🚁</Text>
+          <Text style={styles.iconLabel}>Drone</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('RoofMeasure', { inspectionId })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.iconEmoji}>📐</Text>
+          <Text style={styles.iconLabel}>Measure</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('PitchDetector', { inspectionId })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.iconEmoji}>📏</Text>
+          <Text style={styles.iconLabel}>Pitch</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.iconBtn}
           onPress={() => navigation.navigate('Quote', { inspectionId })}
           activeOpacity={0.85}
         >

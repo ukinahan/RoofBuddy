@@ -18,6 +18,8 @@ import { getInspection, updateInspection } from '../services/storage';
 import { resolvePhotoUri } from '../services/photoUri';
 import { Loading, LoadFailure } from '../components/LoadFailure';
 import { generatePDF, sharePDF, emailReport } from '../services/report';
+import { recordDelightAndMaybePrompt } from '../services/review';
+import { track } from '../services/analytics';
 import { useResponsive } from '../utils/responsive';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Report'>;
@@ -104,6 +106,9 @@ export default function ReportScreen() {
       setInspection(updated);
       const uri = await generatePDF(updated);
       setPdfUri(uri);
+      track('pdf_generated', { photos: updated.photos.length });
+      // Fire-and-forget: ask for an App Store review after a few delight events.
+      recordDelightAndMaybePrompt();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not generate PDF.';
       Alert.alert('PDF Error', msg);

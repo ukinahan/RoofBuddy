@@ -19,6 +19,7 @@ function normalizeInspection(i: Inspection): Inspection {
     ...INSPECTION_DEFAULTS,
     ...i,
     quote: i.quote ?? { lineItems: [] },
+    measurements: i.measurements ?? [],
     photos: (i.photos ?? []).map((p) => {
       // Drop legacy `annotations` field if present from older saves
       const { annotations: _legacy, ...rest } = p as any;

@@ -12,6 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { RootStackParamList, InspectionPhoto } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
 import { loadCompanyProfile } from '../services/company';
+import { getCurrentLocation } from '../services/location';
+import { track } from '../services/analytics';
 
 const PHOTOS_ALBUM = 'Roof Report';
 
@@ -99,6 +101,9 @@ export default function CameraScreen() {
       const inspection = await getInspection(inspectionId);
       if (!inspection) return;
 
+      // Best-effort GPS tag (silently null if permission denied or indoors)
+      const fix = await getCurrentLocation(2500);
+
       const newPhoto: InspectionPhoto = {
         id: uuidv4(),
         uri: dest,
@@ -108,10 +113,15 @@ export default function CameraScreen() {
         drawings: [],
         width: manipulated.width,
         height: manipulated.height,
+        latitude: fix?.latitude,
+        longitude: fix?.longitude,
+        locationAccuracy: fix?.accuracy,
+        altitude: fix?.altitude,
       };
 
       await updateInspection({ ...inspection, photos: [...inspection.photos, newPhoto] });
       setPhotosTaken((n) => n + 1);
+      track('photo_captured', { hasGps: !!fix });
     } catch (err) {
       Alert.alert('Capture Failed', 'Could not save photo. Please try again.');
     } finally {

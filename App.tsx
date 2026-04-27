@@ -26,6 +26,9 @@ import JobsScreen from './src/screens/JobsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import RoofMeasureScreen from './src/screens/RoofMeasureScreen';
+import PitchDetectorScreen from './src/screens/PitchDetectorScreen';
+import BulkImportScreen from './src/screens/BulkImportScreen';
 import { isOnboardingComplete } from './src/services/onboarding';
 
 initSentry();
@@ -53,6 +56,9 @@ function InspectionsStackNav() {
       <InspectionsStack.Screen name="PhotoDetail" component={PhotoDetailScreen} options={{ title: 'Photo Detail' }} />
       <InspectionsStack.Screen name="Report" component={ReportScreen} options={{ title: 'Generate Report' }} />
       <InspectionsStack.Screen name="Quote" component={QuoteScreen} options={{ title: 'Customer Quote' }} />
+      <InspectionsStack.Screen name="RoofMeasure" component={RoofMeasureScreen} options={{ title: 'Roof Measurement' }} />
+      <InspectionsStack.Screen name="PitchDetector" component={PitchDetectorScreen} options={{ title: 'Pitch Detector' }} />
+      <InspectionsStack.Screen name="BulkImport" component={BulkImportScreen} options={{ title: 'Import Photos' }} />
     </InspectionsStack.Navigator>
   );
 }
@@ -68,6 +74,9 @@ function CustomersStackNav() {
       <CustomersStack.Screen name="Camera" component={CameraScreen} options={{ headerShown: false }} />
       <CustomersStack.Screen name="Report" component={ReportScreen} options={{ title: 'Generate Report' }} />
       <CustomersStack.Screen name="Quote" component={QuoteScreen} options={{ title: 'Customer Quote' }} />
+      <CustomersStack.Screen name="RoofMeasure" component={RoofMeasureScreen} options={{ title: 'Roof Measurement' }} />
+      <CustomersStack.Screen name="PitchDetector" component={PitchDetectorScreen} options={{ title: 'Pitch Detector' }} />
+      <CustomersStack.Screen name="BulkImport" component={BulkImportScreen} options={{ title: 'Import Photos' }} />
     </CustomersStack.Navigator>
   );
 }
@@ -81,6 +90,9 @@ function JobsStackNav() {
       <JobsStack.Screen name="Camera" component={CameraScreen} options={{ headerShown: false }} />
       <JobsStack.Screen name="Report" component={ReportScreen} options={{ title: 'Generate Report' }} />
       <JobsStack.Screen name="Quote" component={QuoteScreen} options={{ title: 'Customer Quote' }} />
+      <JobsStack.Screen name="RoofMeasure" component={RoofMeasureScreen} options={{ title: 'Roof Measurement' }} />
+      <JobsStack.Screen name="PitchDetector" component={PitchDetectorScreen} options={{ title: 'Pitch Detector' }} />
+      <JobsStack.Screen name="BulkImport" component={BulkImportScreen} options={{ title: 'Import Photos' }} />
     </JobsStack.Navigator>
   );
 }

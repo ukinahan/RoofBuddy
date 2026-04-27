@@ -11,7 +11,7 @@ module.exports = () => ({
     name: 'Roof Report',
     slug: 'roof-inspector',
     scheme: 'roofbuddy',
-    version: '1.4.1',
+    version: '1.5.0',
     orientation: 'default',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -31,9 +31,16 @@ module.exports = () => ({
           'Roof Report needs photo library access to attach existing photos to inspections.',
         NSPhotoLibraryAddUsageDescription:
           'Roof Report saves inspection photos to your photo library.',
+        NSLocationWhenInUseUsageDescription:
+          'Roof Report tags your photos with GPS coordinates so you can locate jobs on a map and group drone photos by property.',
+        NSMotionUsageDescription:
+          'Roof Report uses device motion to measure roof pitch when you point your phone at a roof edge.',
         ITSAppUsesNonExemptEncryption: false,
       },
-      buildNumber: '24',
+      config: {
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
+      },
+      buildNumber: '25',
     },
     android: {
       adaptiveIcon: {
@@ -50,7 +57,14 @@ module.exports = () => ({
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.READ_MEDIA_VIDEO',
         'android.permission.READ_MEDIA_AUDIO',
+        'android.permission.ACCESS_COARSE_LOCATION',
+        'android.permission.ACCESS_FINE_LOCATION',
       ],
+      config: {
+        googleMaps: {
+          apiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
+        },
+      },
     },
     web: { favicon: './assets/favicon.png' },
     plugins: [
@@ -62,6 +76,14 @@ module.exports = () => ({
       'expo-mail-composer',
       'expo-localization',
       'expo-updates',
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            'Roof Report tags your photos with GPS coordinates so you can locate jobs on a map and group drone photos by property.',
+        },
+      ],
+      'expo-sensors',
     ],
     runtimeVersion: { policy: 'sdkVersion' },
     updates: {

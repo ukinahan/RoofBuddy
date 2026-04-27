@@ -46,6 +46,29 @@ export interface InspectionPhoto {
   damageTags?: string[];
   /** Set after the photo binary has been uploaded to Supabase Storage. Used by sync to skip already-uploaded photos. */
   cloudUploaded?: boolean;
+  /** GPS coordinates captured at photo time (best-effort, may be undefined if location permission denied or unavailable). */
+  latitude?: number;
+  longitude?: number;
+  /** Horizontal accuracy in metres (smaller = more precise). */
+  locationAccuracy?: number;
+  /** Altitude in metres above sea level, if available. */
+  altitude?: number;
+  /** Pitch reading in degrees, if the user used the Pitch Detector while taking this photo. */
+  pitchDegrees?: number;
+}
+
+// ─── Roof Measurement (drawn polygon over satellite map) ────────────────────
+export interface RoofMeasurement {
+  id: string;
+  /** Vertex list (polygon) in lat/lng order */
+  points: Array<{ latitude: number; longitude: number }>;
+  /** Calculated area in square metres */
+  areaSqM: number;
+  /** Optional pitch in degrees (multiplier applied to area for slope correction) */
+  pitchDegrees?: number;
+  /** Free-text label, e.g. "Front slope", "Garage" */
+  label?: string;
+  createdAt: string;
 }
 
 // ─── Quote ───────────────────────────────────────────────────────────────────
@@ -108,6 +131,8 @@ export interface Inspection {
 
   photos: InspectionPhoto[];
   quote: Quote;
+  /** Roof measurements drawn on satellite map (Sprint 3). Optional/backwards compatible. */
+  measurements?: RoofMeasurement[];
   createdAt: string;
   updatedAt: string;
 }
@@ -154,6 +179,12 @@ export type RootStackParamList = {
   Settings: undefined;
   Jobs: undefined;
   Auth: undefined;
+  /** Sprint 3: interactive satellite map for tracing the roof outline + auto-area. */
+  RoofMeasure: { inspectionId: string };
+  /** Sprint 3: tilt-based pitch detector. */
+  PitchDetector: { inspectionId?: string; photoId?: string } | undefined;
+  /** Sprint 3: bulk import drone photos from library. */
+  BulkImport: { inspectionId: string };
 };
 
 
