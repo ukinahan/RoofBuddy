@@ -15,7 +15,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, Inspection } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
+import { resolvePhotoUri } from '../services/photoUri';
+import { Loading, LoadFailure } from '../components/LoadFailure';
 import { generatePDF, sharePDF, emailReport } from '../services/report';
+import { useResponsive } from '../utils/responsive';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Report'>;
 type Route = RouteProp<RootStackParamList, 'Report'>;
@@ -25,6 +28,7 @@ export default function ReportScreen() {
   const route = useRoute<Route>();
   const { inspectionId } = route.params;
 
+  const { contentMaxWidth } = useResponsive();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -38,23 +42,22 @@ export default function ReportScreen() {
   const [conclusion, setConclusion] = useState('');
   const [costOfRepairs, setCostOfRepairs] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        const data = await getInspection(inspectionId);
-        setInspection(data);
-        if (data) {
-          setConditions(data.conditions || '');
-          setScopeOfWorks(data.scopeOfWorks || 'Roof Survey');
-          setOverview(data.overview || '');
-          setReportNo(data.reportNo || '01');
-          setConclusion(data.conclusion || '');
-          setCostOfRepairs(data.costOfRepairs ? data.costOfRepairs.toString() : '');
-        }
-        setLoading(false);
-      })();
-    }, [inspectionId])
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    const data = await getInspection(inspectionId);
+    setInspection(data);
+    if (data) {
+      setConditions(data.conditions || '');
+      setScopeOfWorks(data.scopeOfWorks || 'Roof Survey');
+      setOverview(data.overview || '');
+      setReportNo(data.reportNo || '01');
+      setConclusion(data.conclusion || '');
+      setCostOfRepairs(data.costOfRepairs ? data.costOfRepairs.toString() : '');
+    }
+    setLoading(false);
+  }, [inspectionId]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const buildUpdatedInspection = (): Inspection => ({
     ...inspection!,
@@ -76,6 +79,23 @@ export default function ReportScreen() {
 
   const handleGenerate = async () => {
     if (!inspection) return;
+
+    // Soft warning for very large reports — the resulting PDF may be slow to
+    // build and too large to email (most mail servers cap attachments at 25 MB).
+    if (inspection.photos.length > 50) {
+      const proceed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          'Large Report',
+          `This inspection has ${inspection.photos.length} photos. The PDF may take a while to generate and could be too large to email. Consider splitting into multiple inspections (e.g. by elevation).`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Generate Anyway', onPress: () => resolve(true) },
+          ],
+        );
+      });
+      if (!proceed) return;
+    }
+
     setGenerating(true);
     setPdfUri(null);
     try {
@@ -112,11 +132,17 @@ export default function ReportScreen() {
     }
   };
 
-  if (loading || !inspection) {
+  if (loading) {
+    return <Loading label="Loading inspection…" />;
+  }
+  if (!inspection) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#1a3c5e" />
-      </View>
+      <LoadFailure
+        title="Inspection not found"
+        message="This inspection may have been deleted. Go back and pick another."
+        onRetry={load}
+        onBack={() => navigation.goBack()}
+      />
     );
   }
 
@@ -125,7 +151,13 @@ export default function ReportScreen() {
   const lowCount = inspection.photos.filter((p) => p.severity === 'low').length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' },
+      ]}
+    >
       {/* Summary card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Inspection Summary</Text>
@@ -187,7 +219,7 @@ export default function ReportScreen() {
           textAlignVertical="top"
         />
 
-        <Text style={styles.fieldLabel}>Cost of Repairs ex-VAT (€)</Text>
+        <Text style={styles.fieldLabel}>Cost of Repairs ex-VAT</Text>
         <TextInput
           style={styles.detailInput}
           placeholder="e.g. 6300"
@@ -226,7 +258,7 @@ export default function ReportScreen() {
             const sevColor = sev === 'high' ? '#d32f2f' : sev === 'medium' ? '#f57c00' : sev === 'low' ? '#388e3c' : '#999';
             return (
             <View key={p.id} style={styles.thumb}>
-              <Image source={{ uri: p.uri }} style={styles.thumbImg} />
+              <Image source={{ uri: resolvePhotoUri(p.uri) }} style={styles.thumbImg} />
               <View style={[styles.thumbBadge, { backgroundColor: sevColor }]}>
                 <Text style={styles.thumbBadgeText}>{sev === 'none' ? '–' : sev[0].toUpperCase()}</Text>
               </View>

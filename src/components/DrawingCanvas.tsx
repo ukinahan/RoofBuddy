@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet, GestureResponderEvent } from 'react-native';
-import Svg, { Path, Rect, Circle, Line, Defs, Marker, Polygon } from 'react-native-svg';
+import Svg, { Path, Rect, Circle, Line, Defs, Marker, Polygon, Text as SvgText } from 'react-native-svg';
 import { DrawingPath, DrawingShape } from '../types';
+import { formatLength, formatArea, Units } from '../services/locale';
 import { v4 as uuidv4 } from 'uuid';
 
 interface Props {
@@ -12,6 +13,10 @@ interface Props {
   activeColor: string;
   strokeWidth: number;
   enabled: boolean;
+  /** Pixels per metre for the photo, used to label measurements. */
+  pixelsPerMeter?: number;
+  /** Units to display measurement labels in. */
+  units?: Units;
   onDrawingAdded: (path: DrawingPath) => void;
   onDrawStart?: () => void;
   onDrawEnd?: () => void;
@@ -54,7 +59,58 @@ function encodeArrow(start: Point, end: Point): string {
   return `${start.x.toFixed(1)},${start.y.toFixed(1)},${end.x.toFixed(1)},${end.y.toFixed(1)}`;
 }
 
-function renderDrawing(d: DrawingPath, key: string) {
+/** Encode a line as "x1,y1,x2,y2". Used for measure-line and calibration. */
+function encodeLine(start: Point, end: Point): string {
+  return `${start.x.toFixed(1)},${start.y.toFixed(1)},${end.x.toFixed(1)},${end.y.toFixed(1)}`;
+}
+
+function lineLengthPx(x1: number, y1: number, x2: number, y2: number): number {
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+function renderMeasurementLabel(
+  cx: number,
+  cy: number,
+  text: string,
+  color: string,
+  key: string,
+) {
+  // RN-SVG doesn't support paint-order, so render the white halo first,
+  // then the coloured fill on top to keep text readable on any background.
+  return (
+    <React.Fragment key={key}>
+      <SvgText
+        x={cx}
+        y={cy}
+        fontSize={14}
+        fontWeight="bold"
+        fill="white"
+        stroke="white"
+        strokeWidth={4}
+        textAnchor="middle"
+      >
+        {text}
+      </SvgText>
+      <SvgText
+        x={cx}
+        y={cy}
+        fontSize={14}
+        fontWeight="bold"
+        fill={color}
+        textAnchor="middle"
+      >
+        {text}
+      </SvgText>
+    </React.Fragment>
+  );
+}
+
+function renderDrawing(
+  d: DrawingPath,
+  key: string,
+  pixelsPerMeter?: number,
+  units: Units = 'metric',
+) {
   const sw = d.strokeWidth;
   const color = d.color;
 
@@ -127,6 +183,65 @@ function renderDrawing(d: DrawingPath, key: string) {
     );
   }
 
+  if (d.shape === 'measure-line') {
+    const [x1, y1, x2, y2] = d.data.split(',').map(Number);
+    const px = lineLengthPx(x1, y1, x2, y2);
+    const label = pixelsPerMeter && pixelsPerMeter > 0
+      ? formatLength(px / pixelsPerMeter, units)
+      : `${px.toFixed(0)} px`;
+    return (
+      <React.Fragment key={key}>
+        <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+        {/* End-cap ticks perpendicular to line */}
+        {(() => {
+          const angle = Math.atan2(y2 - y1, x2 - x1);
+          const tickLen = 8;
+          const tx = Math.sin(angle) * tickLen;
+          const ty = -Math.cos(angle) * tickLen;
+          return (
+            <>
+              <Line x1={x1 - tx} y1={y1 - ty} x2={x1 + tx} y2={y1 + ty} stroke={color} strokeWidth={sw} />
+              <Line x1={x2 - tx} y1={y2 - ty} x2={x2 + tx} y2={y2 + ty} stroke={color} strokeWidth={sw} />
+            </>
+          );
+        })()}
+        {renderMeasurementLabel((x1 + x2) / 2, (y1 + y2) / 2 - 8, label, color, `${key}-label`)}
+      </React.Fragment>
+    );
+  }
+
+  if (d.shape === 'measure-area') {
+    const [x, y, w, h] = d.data.split(',').map(Number);
+    let label: string;
+    if (pixelsPerMeter && pixelsPerMeter > 0) {
+      const wM = w / pixelsPerMeter;
+      const hM = h / pixelsPerMeter;
+      label = `${formatArea(wM * hM, units)} (${formatLength(wM, units)} \u00d7 ${formatLength(hM, units)})`;
+    } else {
+      label = `${(w * h).toFixed(0)} px\u00b2`;
+    }
+    return (
+      <React.Fragment key={key}>
+        <Rect x={x} y={y} width={w} height={h} stroke={color} strokeWidth={sw} fill={color} fillOpacity={0.12} />
+        {renderMeasurementLabel(x + w / 2, y + h / 2 + 4, label, color, `${key}-label`)}
+      </React.Fragment>
+    );
+  }
+
+  if (d.shape === 'calibration') {
+    // data format: "x1,y1,x2,y2|metres"
+    const [coords, metresStr] = d.data.split('|');
+    const [x1, y1, x2, y2] = coords.split(',').map(Number);
+    const metres = parseFloat(metresStr || '0');
+    const label = metres > 0 ? formatLength(metres, units) : 'calibration';
+    return (
+      <React.Fragment key={key}>
+        <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={sw} strokeDasharray="6,4" strokeLinecap="round" />
+        {renderMeasurementLabel((x1 + x2) / 2, (y1 + y2) / 2 - 8, `\u{1F4D0} ${label}`, color, `${key}-label`)}
+      </React.Fragment>
+    );
+  }
+
   return null;
 }
 
@@ -138,6 +253,8 @@ export default function DrawingCanvas({
   activeColor,
   strokeWidth,
   enabled,
+  pixelsPerMeter,
+  units = 'metric',
   onDrawingAdded,
   onDrawStart,
   onDrawEnd,
@@ -193,6 +310,16 @@ export default function DrawingCanvas({
       const dist = Math.sqrt(Math.pow(liveEnd.x - liveStart.x, 2) + Math.pow(liveEnd.y - liveStart.y, 2));
       if (dist < 8) { setLivePoints([]); setLiveStart(null); setLiveEnd(null); return; }
       data = encodeArrow(liveStart, liveEnd);
+    } else if (activeShape === 'measure-line' || activeShape === 'calibration') {
+      const dist = Math.sqrt(Math.pow(liveEnd.x - liveStart.x, 2) + Math.pow(liveEnd.y - liveStart.y, 2));
+      if (dist < 8) { setLivePoints([]); setLiveStart(null); setLiveEnd(null); return; }
+      // For calibration we encode the metres separately later in PhotoDetail (it appends "|metres").
+      data = encodeLine(liveStart, liveEnd);
+    } else if (activeShape === 'measure-area') {
+      const w = Math.abs(liveEnd.x - liveStart.x);
+      const h = Math.abs(liveEnd.y - liveStart.y);
+      if (w < 4 || h < 4) { setLivePoints([]); setLiveStart(null); setLiveEnd(null); return; }
+      data = encodeRect(liveStart, liveEnd);
     }
 
     const newPath: DrawingPath = {
@@ -245,6 +372,34 @@ export default function DrawingCanvas({
       const d = `M ${liveStart.x.toFixed(1)} ${liveStart.y.toFixed(1)} L ${liveEnd.x.toFixed(1)} ${liveEnd.y.toFixed(1)} M ${liveEnd.x.toFixed(1)} ${liveEnd.y.toFixed(1)} L ${p1x} ${p1y} M ${liveEnd.x.toFixed(1)} ${liveEnd.y.toFixed(1)} L ${p2x} ${p2y}`;
       return <Path d={d} stroke={color} strokeWidth={sw} strokeLinecap="round" fill="none" />;
     }
+    if (activeShape === 'measure-line' || activeShape === 'calibration') {
+      const px = lineLengthPx(liveStart.x, liveStart.y, liveEnd.x, liveEnd.y);
+      const label = activeShape === 'measure-line' && pixelsPerMeter && pixelsPerMeter > 0
+        ? formatLength(px / pixelsPerMeter, units)
+        : `${px.toFixed(0)} px`;
+      const dashed = activeShape === 'calibration' ? '6,4' : undefined;
+      return (
+        <>
+          <Line x1={liveStart.x} y1={liveStart.y} x2={liveEnd.x} y2={liveEnd.y} stroke={color} strokeWidth={sw} strokeLinecap="round" strokeDasharray={dashed} />
+          {renderMeasurementLabel((liveStart.x + liveEnd.x) / 2, (liveStart.y + liveEnd.y) / 2 - 8, label, color, 'live-label')}
+        </>
+      );
+    }
+    if (activeShape === 'measure-area') {
+      const x = Math.min(liveStart.x, liveEnd.x);
+      const y = Math.min(liveStart.y, liveEnd.y);
+      const w = Math.abs(liveEnd.x - liveStart.x);
+      const h = Math.abs(liveEnd.y - liveStart.y);
+      const label = pixelsPerMeter && pixelsPerMeter > 0
+        ? formatArea((w / pixelsPerMeter) * (h / pixelsPerMeter), units)
+        : `${(w * h).toFixed(0)} px\u00b2`;
+      return (
+        <>
+          <Rect x={x} y={y} width={w} height={h} stroke={color} strokeWidth={sw} fill={color} fillOpacity={0.12} strokeDasharray="6,3" />
+          {renderMeasurementLabel(x + w / 2, y + h / 2 + 4, label, color, 'live-area-label')}
+        </>
+      );
+    }
     return null;
   };
 
@@ -263,7 +418,7 @@ export default function DrawingCanvas({
       onResponderTerminate={onTouchEnd}
     >
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-        {drawings.map((d) => renderDrawing(d, d.id))}
+        {drawings.map((d) => renderDrawing(d, d.id, pixelsPerMeter, units))}
         {renderLivePreview()}
       </Svg>
     </View>

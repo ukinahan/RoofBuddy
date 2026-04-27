@@ -1,209 +1,255 @@
 # RoofBuddy
 
-A React Native (Expo) mobile app for iPhone and iPad that lets roof inspectors capture photos, automatically detect areas of concern using AI, annotate images, and generate professional PDF reports for customers.
+A mobile app for roof inspectors and surveyors. Capture photos on-site, annotate damage,
+measure problem areas directly on each photo, and generate branded PDF reports + customer
+quotes — all offline.
+
+iOS only at present (Android pipeline configured but not actively shipped).
 
 ---
 
-## Features
+## What it does today
 
-- **Camera capture** — Full-screen camera with 3×3 grid overlay to help frame each roof section; take as many photos as needed per inspection
-- **Photo library import** — Pick existing photos from your device's library
-- **Tap-to-annotate** — Tap anywhere on a photo to drop a concern marker; choose High / Medium / Low severity and add a description
-- **AI analysis** — Sends each photo to GPT-4o Vision, which returns a written summary and automatically places coloured pins on detected issues (cracked shingles, flashing damage, staining, etc.)
-- **Inspector notes** — Free-text notes per photo and per inspection
-- **PDF report generation** — Branded, printable PDF embedding all photos, annotations, AI summaries, and a severity summary card
-- **Email to customer** — Pre-fills the native iOS/Android mail composer with the PDF attached and the customer's address populated
-- **Share / Save** — Share the PDF via AirDrop, Messages, Files, or any other share-sheet option
-- **Offline-first** — All data and photos are stored on-device with no account or login required; internet is only needed for AI analysis
+- **Inspections** — create site visits keyed to a customer + property address
+- **Customers** — lightweight CRM (name, contact, address, notes, history)
+- **Photo capture** — full-screen landscape camera, photos auto-resized to 1600px
+  JPEG so the report layout is consistent
+- **Annotation** — draw freehand / rectangles / circles / arrows on each photo with
+  selectable colour and stroke. Toolbar is horizontally scrollable so every shape
+  tool is reachable on smaller screens
+- **On-photo measurement** — calibrate scale once against a known reference (e.g. a
+  brick course), then measure linear distances and rectangular areas. Results render
+  in metric or imperial based on locale
+- **Quote builder** — line-item quotes with VAT, deposit %, and a "Pull from Photos"
+  button that turns measured areas/lengths into draft quote lines
+- **Branded PDF report** — multi-page output: cover, project overview, satellite
+  thumbnail, photos with overlaid drawings + measurements, conclusion + cost
+- **Email / share** — send the report straight from the device via the system mail
+  composer or share sheet
+- **Localisation** — IE / UK / US / CA / AU / ES with currency, units, and (English)
+  UI strings; framework in place for `ga` and `es` translations
+- **Optional cloud sync** — magic-link sign-in via Supabase; inspections, customers,
+  and photos sync across devices and to the companion web portal. Sync respects a
+  WiFi-only setting and a per-photo size cap to keep mobile data usage low. The app
+  remains fully usable offline when sync is disabled or unavailable
+- **Companion web portal** — sign in at https://admin.roofinspector.app to review,
+  edit, PDF, and email reports from a desktop browser. Same data, same account
 
 ---
 
-## Tech Stack
+## What it does NOT do (yet)
+
+So you don't get caught out — these are intentionally not in the build:
+
+- AI / automatic damage detection
+- Aerial / drone / satellite measurement
+- Multi-device sync, cloud backup, or team accounts
+- Digital signature / customer approval workflow
+- Invoicing or payment processing
+- Push notifications
+- Web companion app
+- QuickBooks / Xero integration
+
+Several of these are on the roadmap; none are present in v1.3.x.
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | React Native + Expo SDK 52 |
+| Framework | React Native + Expo SDK 54 |
 | Language | TypeScript |
-| Navigation | React Navigation v6 (native stack) |
-| Storage | AsyncStorage (device-local, offline) |
-| Camera | expo-camera |
-| AI | OpenAI GPT-4o Vision API |
-| PDF | expo-print |
-| Email | expo-mail-composer |
-| Sharing | expo-sharing |
+| Navigation | React Navigation v6 (bottom tabs + native stacks) |
+| Storage | `@react-native-async-storage/async-storage` (device-local) |
+| Camera | `expo-camera` + `expo-image-manipulator` |
+| Drawing | `react-native-svg` |
+| PDF | `expo-print` (HTML → PDF via WebKit) |
+| Maps | Google Maps Static + Geocoding APIs |
+| Crash reporting | Sentry (optional, via EAS env var) |
+| Build / submit | Expo Application Services (EAS) |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
-RoofBuddy/
-├── App.tsx                          # Root navigator
-├── app.json                         # Expo config (permissions, bundle IDs)
+RoofInspector/
+├── App.tsx                              # Root: 4 bottom tabs, each owns a stack
+├── app.config.js                        # Dynamic Expo config; reads env vars
+├── eas.json                             # EAS build + submit profiles
+├── .env.example                         # Template for local secrets
 ├── src/
-│   ├── types/index.ts               # Shared TypeScript types
+│   ├── types/index.ts                   # Shared TS types (Inspection, Photo, Quote, …)
 │   ├── services/
-│   │   ├── ai.ts                    # GPT-4o Vision integration
-│   │   ├── storage.ts               # AsyncStorage CRUD helpers
-│   │   └── report.ts                # PDF builder + email/share
+│   │   ├── storage.ts                   # AsyncStorage CRUD for inspections
+│   │   ├── customers.ts                 # AsyncStorage CRUD for customers
+│   │   ├── company.ts                   # Company profile + T&Cs
+│   │   ├── locale.ts                    # Region / language / units / currency
+│   │   ├── i18n.ts                      # Translation dictionaries + useT() hook
+│   │   ├── maps.ts                      # Google Maps geocoding + static images
+│   │   ├── report.ts                    # PDF generation (HTML builder)
+│   │   └── sentry.ts                    # Optional crash reporting bootstrap
 │   ├── screens/
-│   │   ├── HomeScreen.tsx           # Inspection list
-│   │   ├── NewInspectionScreen.tsx  # Create inspection form
-│   │   ├── InspectionScreen.tsx     # Photo grid for an inspection
-│   │   ├── CameraScreen.tsx         # Full-screen camera
-│   │   ├── PhotoDetailScreen.tsx    # Annotate + AI analyse a photo
-│   │   └── ReportScreen.tsx         # Preview + generate + send report
-│   └── components/
-│       ├── InspectionCard.tsx       # Home list item
-│       ├── PhotoCard.tsx            # Photo grid thumbnail
-│       └── AnnotationPin.tsx        # Coloured concern pin on image
-└── setup.ps1                        # One-time setup helper (Windows)
+│   │   ├── HomeScreen.tsx               # Inspections tab (list + iPad split view)
+│   │   ├── NewInspectionScreen.tsx      # Create inspection form
+│   │   ├── InspectionScreen.tsx         # Photo grid + actions for one inspection
+│   │   ├── CameraScreen.tsx             # Landscape-locked camera
+│   │   ├── PhotoDetailScreen.tsx        # Annotate / measure / calibrate one photo
+│   │   ├── ReportScreen.tsx             # Configure + generate PDF report
+│   │   ├── QuoteScreen.tsx              # Line-item quote builder
+│   │   ├── JobsScreen.tsx               # Date-grouped view of inspections
+│   │   ├── CustomersScreen.tsx          # Customers tab list
+│   │   ├── CustomerDetailScreen.tsx     # One customer + their inspections + stats
+│   │   ├── SettingsScreen.tsx           # Settings tab entry
+│   │   ├── CompanyProfileScreen.tsx     # Company name / logo / VAT / T&Cs
+│   │   └── SplashScreen.tsx             # Initial branded splash
+│   ├── components/
+│   │   ├── DrawingCanvas.tsx            # SVG drawing + measurement renderer
+│   │   ├── InspectionCard.tsx
+│   │   └── PhotoCard.tsx
+│   └── utils/responsive.ts              # Tablet/phone breakpoints
+└── assets/                              # Icons, splash, default logo
 ```
 
 ---
 
-## Getting Started
+## Getting started (development)
 
 ### Prerequisites
 
-- [Node.js 20 LTS](https://nodejs.org/)
-- [Expo Go](https://apps.apple.com/app/expo-go/id982107779) installed on your iPhone or iPad
-- An [OpenAI API key](https://platform.openai.com/api-keys) (free tier works for testing)
+- Node 20 LTS
+- An Expo account (`expo.dev`) — free
+- iOS device or simulator (Android works but is not the focus)
+- A Google Maps API key with **Maps Static API** + **Geocoding API** enabled
 
 ### 1. Install dependencies
 
 ```powershell
-cd RoofBuddy
 npm install
 ```
 
-Or run the guided setup script (Windows):
+### 2. Configure local secrets
 
 ```powershell
-.\setup.ps1
+Copy-Item .env.example .env
 ```
 
-### 2. Add your OpenAI API key
+Open `.env` and fill in:
 
-Open `src/services/ai.ts` and replace the placeholder:
-
-```ts
-const OPENAI_API_KEY = 'sk-REPLACE_WITH_YOUR_OPENAI_API_KEY';
+```
+GOOGLE_MAPS_API_KEY=your-key-here
+SENTRY_DSN=                              # optional
 ```
 
-> Keep your key private — never commit it to a public repository.
+`.env` is git-ignored. For production builds the same names are stored as EAS
+environment variables (`eas env:create production --name GOOGLE_MAPS_API_KEY …`).
 
-### 3. Start the development server
+### 3. Run on a device
 
 ```powershell
-npm start
+npx expo start
 ```
 
-### 4. Open on your device
-
-1. Make sure your phone and computer are on the **same Wi-Fi network**
-2. Open the **Camera app** on iPhone/iPad and scan the QR code shown in the terminal
-3. The app will open in Expo Go
+Open in an iOS simulator (`i`) or scan the QR code with the Expo Go app on a real
+device. Note: Expo Go cannot exercise some native modules (camera permission flows
+behave differently in dev clients).
 
 ---
 
-## Building for the App Store
-
-This app uses [Expo Application Services (EAS)](https://expo.dev/eas) for standalone builds.
+## Building for TestFlight
 
 ```powershell
-npm install -g eas-cli
-eas login
-eas build --platform ios
+eas build --platform ios --profile production --auto-submit
 ```
 
-A free Expo account is required at [expo.dev](https://expo.dev).
+This:
+1. Reads `app.config.js` and bakes in EAS environment variables
+2. Builds an `.ipa` on EAS servers (~20 min)
+3. Uploads it to App Store Connect for the configured ASC App ID
+
+Bump `version` and/or `buildNumber` in `app.config.js` before each build —
+`autoIncrement` is intentionally off because it does not work with `app.config.js`.
 
 ---
 
-## Usage Walkthrough
+## Walkthrough
 
-1. **Home screen** → tap **+ New Inspection**
-2. Enter customer name, email, property address, and your name → **Create Inspection**
-3. Tap **Camera** to take roof photos or **Library** to import existing ones
-4. Tap any photo thumbnail to open it
-5. **Tap anywhere on the photo** to drop a concern marker — select severity and describe the issue
-6. Tap **Analyse with AI** to let GPT-4o Vision detect additional damage automatically
-7. Add written notes in the Inspector Notes box
-8. Go back and tap **Report** → **Generate PDF Report**
-9. Tap **Email to Customer** or **Share / Save** to deliver the report
-
----
-
-## Severity Levels
-
-| Level | Colour | Meaning |
-|-------|--------|---------|
-| High | Red | Immediate repair required |
-| Medium | Orange | Repair within 3–6 months |
-| Low | Green | Monitor / cosmetic issue |
+1. **Settings → Company Profile** — set your company name, logo, VAT rate, and T&Cs
+2. **Customers tab → +** — add a customer (or skip and create one inline later)
+3. **Inspections tab → + New Inspection** — pick the customer, fill in address/ref
+4. From the inspection screen, tap **Camera** to capture photos
+5. Tap a photo thumbnail to open **Photo Detail**
+6. In **Draw mode**:
+   - Use 🎯 **Calibrate** first — draw a line over a known reference (e.g. a 1.0 m
+     flashing) and enter the real-world length
+   - Then use 📏 **Length** or 📐 **Area** to measure features; labels render in
+     your locale's units
+   - Use ✏️ / ▭ / ○ / → for annotation
+7. Set **Severity** and **Inspector Notes** per photo
+8. Back on the inspection, tap **Quote** → optionally **Pull from Photos** to seed
+   line items from your measurements; set prices
+9. Tap **Report** → fill in conditions / overview / conclusion → **Generate PDF**
+10. **Email** or **Share** the PDF
 
 ---
 
-## Recent Updates (v1.2.x)
+## Severity levels
 
-- **v1.2.5** — Delete photos directly from the inspection screen (× button on each thumbnail)
-- **v1.2.4** — Vertical drawing strokes now register correctly; "Save Notes" returns to the photo grid
-- **v1.2.3** — Fixed drawing capture conflict with page scroll
-- **v1.2.2** — Replaced settings emoji with a clean white SVG gear icon
-- **v1.2.1** — Restored ability to scroll past the photo on the Photo Detail screen
+| Level   | Colour   | Suggested meaning                |
+|---------|----------|----------------------------------|
+| High    | Red      | Immediate repair required        |
+| Medium  | Orange   | Repair within 3–6 months         |
+| Low     | Green    | Monitor / cosmetic               |
+| None    | Grey     | Reference photo, no action       |
 
 ---
 
-## TestFlight — Beta Testing Instructions (iOS)
+## Data and privacy
 
-The latest build is available on Apple TestFlight. Follow these steps to install and provide feedback.
+- All inspection, photo, and customer data is stored locally in `AsyncStorage`
+- Photos are stored as JPEG files in the app's Documents directory (and optionally
+  copied to the device Photos library if enabled in Company Profile)
+- The only outbound network calls in the app are to Google Maps (for the satellite
+  thumbnail and address geocoding) and, if configured, Sentry
+- There is no backend, no account system, and no analytics
+- Device loss = data loss. Use **Settings → Export Data** to back up regularly
 
-### 1. Install TestFlight
+---
 
-1. On your **iPhone or iPad**, open the App Store
-2. Search for **TestFlight** (made by Apple Inc.)
-3. Tap **Get** to install
+## Recent changes
 
-### 2. Accept the invitation
+- **v1.4.1 (build 24)** — Drawing toolbar now scrolls horizontally so the Area
+  tool and any tools beyond it are reachable on narrower devices. README +
+  documentation refresh covering the cloud-sync, onboarding, sync-prefs, and
+  companion-portal work that landed in the v1.4.0 line
+- **v1.4.0 (build 23)** — Optional cloud sync via Supabase: magic-link sign-in,
+  inspection + customer + photo sync, true WiFi-only detection (`expo-network`),
+  per-photo size cap, sync progress bar, background sync on app foreground.
+  Onboarding updated with a cloud-backup explainer card. Photo URI resolution
+  rebuilt to survive iOS app-container UUID rotation so historical reports keep
+  their images. Companion web portal (Next.js on Vercel) now live at
+  https://admin.roofinspector.app
+- **v1.3.2 (build 20)** — Photo aspect-ratio fix: capture pipeline standardises
+  every photo to 1600 px landscape, drawing canvas matches actual photo aspect,
+  removed `scaleY(1.1)` PDF stretch, SVG overlay now uses
+  `preserveAspectRatio="xMidYMid meet"` so markups stay aligned with the image
+- **v1.3.1 (build 19)** — Version bump for resubmission only
+- **v1.3.0 (build 18)** — On-photo Length/Area measurement with calibration;
+  "Pull from Photos" in QuoteScreen; per-customer revenue stats; expanded
+  i18n; Sentry hook; `app.config.js` + EAS environment variables
+- **v1.2.x** — Drawing tools (freehand / rectangle / circle / arrow), per-photo
+  severity, in-place photo deletion
 
-1. You'll receive an email invitation from Apple titled **"You're invited to test Roof Report"**
-2. Open the email **on your iPhone/iPad** (not on a computer)
-3. Tap **View in TestFlight** (or **Start Testing**)
-4. TestFlight will open and show the **Roof Report** app
+---
 
-### 3. Install the app
+## Roadmap
 
-1. In TestFlight, tap **Accept** next to Roof Report
-2. Tap **Install** (or **Update** if you already have an older build)
-3. The app will install on your home screen with the name **Roof Report**
+Tracked in code and conversation; not exhaustive. Top items:
 
-### 4. Try it out
-
-1. Open **Roof Report** from your home screen
-2. Tap the **gear icon** (top-right) to set up your **Company Profile** (name, logo, contact info)
-3. From the home screen, tap **+ New Inspection**
-4. Fill in customer details and tap **Create Inspection**
-5. Tap **Camera** to capture roof photos, or **Library** to import existing ones
-6. Tap any photo thumbnail to open it, then:
-   - Use **Draw** mode to mark up issues with freehand, boxes, circles, or arrows
-   - Set **Severity Level** (None / Low / Medium / High)
-   - Add **Inspector Notes** and tap **Save Notes**
-7. Back on the inspection screen, tap **×** on any photo thumbnail to delete it
-8. When done, tap **Report** → **Generate PDF Report**
-9. Tap **Email to Customer** or **Share / Save**
-
-### 5. Send feedback
-
-In TestFlight, you can:
-- Take a screenshot and TestFlight will prompt you to share it with the developer
-- Tap the app in TestFlight and use **Send Beta Feedback** to write notes or attach screenshots
-- Or simply email feedback directly to the developer
-
-### Notes for Testers
-
-- The TestFlight build expires after 90 days — you'll get a new invite for each update
-- Updates may arrive every few days while we iterate on feedback
-- You may need to **delete the App Store version** (if installed) before installing the TestFlight version
-- Crashes are automatically reported to the developer via TestFlight
-
+- Sprint C: first-run onboarding, error boundaries, data export/wipe, OTA updates
+- Sprint D: rate book, quote templates, damage presets
+- Sprint E: calibration carry-over across photos, polygon area, satellite-trace
+  measurement
+- Sprint F: cloud sync (Supabase), magic-link auth, multi-device, then RevenueCat
+  for paid tiers

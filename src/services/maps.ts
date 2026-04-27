@@ -1,22 +1,40 @@
 /**
  * Google Maps helpers used at PDF generation time:
- *   1. Geocode a free-text Irish address → { lat, lng }
+ *   1. Geocode a free-text address → { lat, lng }
  *   2. Fetch a satellite PNG → base64 data URI for embedding in PDFs
+ *
+ * The API key is loaded from `Constants.expoConfig.extra.googleMapsApiKey`,
+ * populated at build time from the GOOGLE_MAPS_API_KEY env var (locally via
+ * `.env`, in production via EAS Secrets). The key MUST be restricted in the
+ * GCP console to the app bundle id and to the Maps Static + Geocoding APIs.
  */
 
-const GOOGLE_API_KEY = 'AIzaSyBqWsVR8OzDVVGHa_erem7K--aL-zdZ_q0';
+import Constants from 'expo-constants';
+import { getRegionCountryName } from './locale';
 
-/** Geocode an address string, appending "Ireland" if not already present. */
+function getApiKey(): string {
+  const extra = (Constants.expoConfig?.extra ?? (Constants as any).manifest?.extra) as
+    | { googleMapsApiKey?: string }
+    | undefined;
+  return extra?.googleMapsApiKey ?? '';
+}
+
+/** Geocode an address string. Region-aware: appends the user's country. */
 export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number } | null> {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
   try {
-    const query = address.toLowerCase().includes('ireland')
-      ? address
-      : `${address}, Ireland`;
+    const country = await getRegionCountryName();
+    const lower = address.toLowerCase();
+    const query =
+      country && !lower.includes(country.toLowerCase())
+        ? `${address}, ${country}`
+        : address;
     const url =
       `https://maps.googleapis.com/maps/api/geocode/json` +
-      `?address=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`;
+      `?address=${encodeURIComponent(query)}&key=${apiKey}`;
     const res = await fetch(url);
     const json = await res.json();
     if (json.status !== 'OK' || !json.results?.length) return null;
@@ -44,6 +62,8 @@ export async function fetchSatelliteImageUri(
   width = 600,
   height = 380
 ): Promise<string> {
+  const apiKey = getApiKey();
+  if (!apiKey) return '';
   try {
     const url =
       `https://maps.googleapis.com/maps/api/staticmap` +
@@ -51,7 +71,7 @@ export async function fetchSatelliteImageUri(
       `&zoom=${zoom}` +
       `&size=${width}x${height}` +
       `&maptype=satellite` +
-      `&key=${GOOGLE_API_KEY}`;
+      `&key=${apiKey}`;
     const res = await fetch(url);
     if (!res.ok) return '';
     const blob = await res.blob();

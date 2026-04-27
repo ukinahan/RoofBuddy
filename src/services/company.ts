@@ -29,6 +29,7 @@ export const DEFAULT_COMPANY: CompanyProfile = {
   depositPercent: 40,
   quoteValidDays: 30,
   logoUri: '',
+  saveToPhotos: true,
 };
 
 /** Load the saved company profile, falling back to defaults for any missing fields. */

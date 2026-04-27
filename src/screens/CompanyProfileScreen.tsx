@@ -10,26 +10,34 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { CompanyProfile } from '../types';
 import { loadCompanyProfile, saveCompanyProfile, DEFAULT_COMPANY } from '../services/company';
+import { resolvePhotoUri } from '../services/photoUri';
+import { loadLocale, getPostcodeLabel, Region } from '../services/locale';
+import { useResponsive } from '../utils/responsive';
 
 const LOGO_DIR = `${FileSystem.documentDirectory}company/`;
 const LOGO_PATH = `${LOGO_DIR}logo.png`;
 
 export default function CompanyProfileScreen() {
   const navigation = useNavigation();
+  const { contentMaxWidth } = useResponsive();
   const [profile, setProfile] = useState<CompanyProfile>({ ...DEFAULT_COMPANY });
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [region, setRegion] = useState<Region>('IE');
 
   useEffect(() => {
     (async () => {
       const p = await loadCompanyProfile();
       setProfile(p);
+      const l = await loadLocale();
+      setRegion(l.region);
       setLoaded(true);
     })();
   }, []);
@@ -111,14 +119,17 @@ export default function CompanyProfileScreen() {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Logo */}
         <Text style={styles.sectionTitle}>Company Logo</Text>
         <View style={styles.logoSection}>
           {profile.logoUri ? (
-            <Image source={{ uri: profile.logoUri }} style={styles.logoPreview} resizeMode="contain" />
+            <Image source={{ uri: resolvePhotoUri(profile.logoUri) }} style={styles.logoPreview} resizeMode="contain" />
           ) : (
             <View style={styles.logoPlaceholder}>
               <Text style={styles.logoPlaceholderText}>No custom logo</Text>
@@ -144,7 +155,7 @@ export default function CompanyProfileScreen() {
         <Field label="Short Name" value={profile.shortName} onChangeText={(v) => updateField('shortName', v)} placeholder="Used in letter sign-off" />
         <Field label="Services Tagline" value={profile.services} onChangeText={(v) => updateField('services', v)} placeholder="e.g. Copper | Zinc | PVC Roofing" />
         <Field label="Address" value={profile.address} onChangeText={(v) => updateField('address', v)} placeholder="Comma-separated lines" />
-        <Field label="Eircode / Postcode" value={profile.eircode} onChangeText={(v) => updateField('eircode', v)} />
+        <Field label={getPostcodeLabel(region)} value={profile.eircode} onChangeText={(v) => updateField('eircode', v)} />
         <Field label="Phone" value={profile.tel} onChangeText={(v) => updateField('tel', v)} keyboardType="phone-pad" />
         <Field label="Email" value={profile.email} onChangeText={(v) => updateField('email', v)} keyboardType="email-address" autoCapitalize="none" />
         <Field label="Website" value={profile.website} onChangeText={(v) => updateField('website', v)} autoCapitalize="none" />
@@ -189,6 +200,23 @@ export default function CompanyProfileScreen() {
           }}
           keyboardType="number-pad"
         />
+
+        {/* Camera Settings */}
+        <Text style={styles.sectionTitle}>Camera</Text>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.toggleLabel}>Save photos to iPhone Photos</Text>
+            <Text style={styles.toggleHint}>
+              When on, every photo taken with the in-app camera is also saved to a "Roof Report" album in
+              your Photos library.
+            </Text>
+          </View>
+          <Switch
+            value={profile.saveToPhotos}
+            onValueChange={(v) => updateField('saveToPhotos', v)}
+            trackColor={{ true: '#1a3c5e', false: '#ccc' }}
+          />
+        </View>
 
         {/* Save */}
         <TouchableOpacity
@@ -308,4 +336,16 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   saveBtnText: { color: 'white', fontSize: 16, fontWeight: '700' },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 12,
+  },
+  toggleLabel: { fontSize: 14, fontWeight: '600', color: '#222' },
+  toggleHint: { fontSize: 12, color: '#666', marginTop: 4, lineHeight: 16 },
 });

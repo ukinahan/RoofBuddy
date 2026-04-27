@@ -19,25 +19,31 @@ import type { RouteProp } from '@react-navigation/native';
 import { v4 as uuidv4 } from 'uuid';
 import { RootStackParamList, Inspection, QuoteLineItem, CompanyProfile } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
+import { Loading, LoadFailure } from '../components/LoadFailure';
 import { generateQuotePDF, shareQuotePDF, emailQuote } from '../services/report';
 import { loadCompanyProfile, DEFAULT_COMPANY } from '../services/company';
+import { loadLocale, formatCurrencyWith, formatLength, formatArea, LocaleSettings } from '../services/locale';
+import { getRateBook, CATEGORIES, RateItem } from '../services/rateBook';
+import { useResponsive } from '../utils/responsive';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Quote'>;
 type Route = RouteProp<RootStackParamList, 'Quote'>;
 
-const formatCurrency = (amount: number) =>
-  '€' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const DEFAULT_LOCALE: LocaleSettings = { region: 'IE', language: 'en', units: 'metric', currency: 'EUR' };
 
 export default function QuoteScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { inspectionId } = route.params;
 
+  const { contentMaxWidth } = useResponsive();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(DEFAULT_COMPANY);
+  const [locale, setLocale] = useState<LocaleSettings>(DEFAULT_LOCALE);
+  const formatCurrency = (n: number) => formatCurrencyWith(n, locale);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -45,11 +51,15 @@ export default function QuoteScreen() {
   const [fieldQty, setFieldQty] = useState('');
   const [fieldDesc, setFieldDesc] = useState('');
   const [fieldPrice, setFieldPrice] = useState('');
+  const [rateBookVisible, setRateBookVisible] = useState(false);
+  const [rateCategory, setRateCategory] = useState<RateItem['category']>('tiles');
 
   useEffect(() => {
     (async () => {
       const profile = await loadCompanyProfile();
       setCompanyProfile(profile);
+      const l = await loadLocale();
+      setLocale(l);
     })();
   }, []);
 
@@ -110,6 +120,84 @@ export default function QuoteScreen() {
     setModalVisible(false);
   };
 
+  const handlePullFromPhotos = useCallback(() => {
+    if (!inspection) return;
+    let totalAreaM2 = 0;
+    let totalLengthM = 0;
+    let areaCount = 0;
+    let lengthCount = 0;
+    let uncalibratedPhotos = 0;
+
+    for (const photo of inspection.photos) {
+      const ppm = photo.pixelsPerMeter;
+      const measurements = (photo.drawings ?? []).filter(
+        (d) => d.shape === 'measure-line' || d.shape === 'measure-area',
+      );
+      if (measurements.length === 0) continue;
+      if (!ppm || ppm <= 0) {
+        uncalibratedPhotos += 1;
+        continue;
+      }
+      for (const d of measurements) {
+        if (d.shape === 'measure-line') {
+          const [x1, y1, x2, y2] = d.data.split(',').map(Number);
+          const px = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+          totalLengthM += px / ppm;
+          lengthCount += 1;
+        } else if (d.shape === 'measure-area') {
+          const [, , w, h] = d.data.split(',').map(Number);
+          totalAreaM2 += (w / ppm) * (h / ppm);
+          areaCount += 1;
+        }
+      }
+    }
+
+    if (lengthCount === 0 && areaCount === 0) {
+      const msg = uncalibratedPhotos > 0
+        ? `No measurements found. ${uncalibratedPhotos} photo(s) have measurements but aren\u2019t calibrated yet \u2014 open them and tap \u{1F3AF} Calibrate.`
+        : 'No on-photo measurements found. Open a photo, calibrate the scale, then draw a Length or Area measurement.';
+      Alert.alert('Nothing to pull', msg);
+      return;
+    }
+
+    const newItems: QuoteLineItem[] = [];
+    if (areaCount > 0) {
+      newItems.push({
+        id: uuidv4(),
+        qty: formatArea(totalAreaM2, locale.units),
+        description: `Roof area measured from ${areaCount} photo region(s)`,
+        totalPrice: 0,
+      });
+    }
+    if (lengthCount > 0) {
+      newItems.push({
+        id: uuidv4(),
+        qty: formatLength(totalLengthM, locale.units),
+        description: `Linear works measured from ${lengthCount} photo line(s)`,
+        totalPrice: 0,
+      });
+    }
+
+    const summary = newItems.map((i) => `\u2022 ${i.qty} \u2014 ${i.description}`).join('\n');
+    const warn = uncalibratedPhotos > 0
+      ? `\n\nNote: ${uncalibratedPhotos} photo(s) had measurements but no calibration and were skipped.`
+      : '';
+    Alert.alert(
+      'Add to quote?',
+      `${summary}\n\nPrices are blank \u2014 tap each line to set them.${warn}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: async () => {
+            const items = inspection.quote.lineItems ?? [];
+            await saveItems([...items, ...newItems]);
+          },
+        },
+      ],
+    );
+  }, [inspection, locale]);
+
   const handleDeleteItem = (id: string) => {
     Alert.alert('Remove Line Item', 'Remove this item from the quote?', [
       { text: 'Cancel', style: 'cancel' },
@@ -150,8 +238,18 @@ export default function QuoteScreen() {
     catch (err: unknown) { Alert.alert('Email Error', err instanceof Error ? err.message : 'Could not open mail.'); }
   };
 
-  if (loading || !inspection) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color="#1a3c5e" /></View>;
+  if (loading) {
+    return <Loading label="Loading quote…" />;
+  }
+  if (!inspection) {
+    return (
+      <LoadFailure
+        title="Inspection not found"
+        message="We couldn’t open this quote. The inspection may have been deleted."
+        onRetry={load}
+        onBack={() => navigation.goBack()}
+      />
+    );
   }
 
   const items = inspection.quote.lineItems;
@@ -161,7 +259,13 @@ export default function QuoteScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' },
+        ]}
+      >
 
         {/* Header info */}
         <View style={styles.headerCard}>
@@ -194,6 +298,9 @@ export default function QuoteScreen() {
 
         <TouchableOpacity style={styles.addItemBtn} onPress={openAddModal} activeOpacity={0.85}>
           <Text style={styles.addItemText}>+ Add Line Item</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pullBtn} onPress={handlePullFromPhotos} activeOpacity={0.85}>
+          <Text style={styles.pullBtnText}>{'\u{1F4D0} Pull from Photo Measurements'}</Text>
         </TouchableOpacity>
 
         {/* Totals */}
@@ -250,6 +357,16 @@ export default function QuoteScreen() {
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>{editingItem ? 'Edit Line Item' : 'Add Line Item'}</Text>
 
+              {!editingItem && (
+                <TouchableOpacity
+                  style={styles.rateBookOpen}
+                  onPress={() => setRateBookVisible(true)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.rateBookOpenText}>{'\u{1F4D6}  Pick from rate book'}</Text>
+                </TouchableOpacity>
+              )}
+
               <Text style={styles.modalLabel}>Quantity (e.g. 104 m², 1 No., Allow)</Text>
               <TextInput
                 style={styles.modalInput}
@@ -270,7 +387,7 @@ export default function QuoteScreen() {
                 textAlignVertical="top"
               />
 
-              <Text style={styles.modalLabel}>Total Price (ex VAT) €</Text>
+              <Text style={styles.modalLabel}>Total Price (ex VAT)</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 19650"
@@ -292,6 +409,54 @@ export default function QuoteScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Rate book picker */}
+      <Modal visible={rateBookVisible} transparent animationType="slide" onRequestClose={() => setRateBookVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}> 
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.modalTitle}>Rate book ({locale.region})</Text>
+              <TouchableOpacity onPress={() => setRateBookVisible(false)}>
+                <Text style={{ fontSize: 22, color: '#666' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
+              {CATEGORIES.map((c) => (
+                <TouchableOpacity
+                  key={c.key}
+                  onPress={() => setRateCategory(c.key)}
+                  style={[styles.catChip, rateCategory === c.key && styles.catChipActive]}
+                >
+                  <Text style={[styles.catChipText, rateCategory === c.key && styles.catChipTextActive]}>{c.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <ScrollView style={{ maxHeight: 380 }}>
+              {getRateBook(locale.region)
+                .filter((r) => r.category === rateCategory)
+                .map((r) => (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={styles.rateRow}
+                    onPress={() => {
+                      setFieldQty('1 ' + r.unit);
+                      setFieldDesc(r.description);
+                      setFieldPrice(r.unitPrice.toString());
+                      setRateBookVisible(false);
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rateLabel}>{r.label}</Text>
+                      <Text style={styles.rateDesc} numberOfLines={2}>{r.description}</Text>
+                    </View>
+                    <Text style={styles.ratePrice}>{formatCurrency(r.unitPrice)}<Text style={styles.rateUnit}>/{r.unit}</Text></Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+            <Text style={styles.rateNote}>Suggested prices only. Adjust for access, pitch and local labour.</Text>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -311,8 +476,10 @@ const styles = StyleSheet.create({
   tableCell: { fontSize: 13, color: '#222', lineHeight: 18 },
   emptyRow: { backgroundColor: 'white', borderRadius: 8, padding: 24, alignItems: 'center', marginBottom: 2 },
   emptyText: { color: '#999', fontSize: 14, textAlign: 'center' },
-  addItemBtn: { borderWidth: 2, borderColor: '#1a3c5e', borderStyle: 'dashed', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 16 },
+  addItemBtn: { borderWidth: 2, borderColor: '#1a3c5e', borderStyle: 'dashed', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 8 },
   addItemText: { color: '#1a3c5e', fontSize: 14, fontWeight: '700' },
+  pullBtn: { backgroundColor: '#e8f1ff', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 16 },
+  pullBtnText: { color: '#1a3c5e', fontSize: 13, fontWeight: '600' },
   totalsCard: { backgroundColor: 'white', borderRadius: 12, padding: 14, marginBottom: 16 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   totalLabel: { fontSize: 14, color: '#555' },
@@ -339,4 +506,17 @@ const styles = StyleSheet.create({
   modalCancelText: { color: '#555', fontSize: 14, fontWeight: '600' },
   modalSave: { flex: 2, backgroundColor: '#1a3c5e', borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
   modalSaveText: { color: 'white', fontSize: 14, fontWeight: '700' },
+  // Rate book
+  rateBookOpen: { backgroundColor: '#e8f1ff', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 14 },
+  rateBookOpenText: { color: '#1a3c5e', fontWeight: '700', fontSize: 13 },
+  catChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0' },
+  catChipActive: { backgroundColor: '#1a3c5e' },
+  catChipText: { fontSize: 12, fontWeight: '600', color: '#555' },
+  catChipTextActive: { color: 'white' },
+  rateRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', alignItems: 'center' },
+  rateLabel: { fontSize: 14, fontWeight: '700', color: '#222' },
+  rateDesc: { fontSize: 12, color: '#777', marginTop: 2 },
+  ratePrice: { fontSize: 14, fontWeight: '700', color: '#1a3c5e', marginLeft: 12 },
+  rateUnit: { fontSize: 11, color: '#888', fontWeight: '500' },
+  rateNote: { fontSize: 11, color: '#999', textAlign: 'center', marginTop: 12 },
 });

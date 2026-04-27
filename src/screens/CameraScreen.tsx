@@ -6,9 +6,36 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { v4 as uuidv4 } from 'uuid';
 import { RootStackParamList, InspectionPhoto } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
+import { loadCompanyProfile } from '../services/company';
+
+const PHOTOS_ALBUM = 'Roof Report';
+
+/** Save a JPEG file to the device's Photos library inside a "Roof Report" album.
+ *  Best-effort: silently no-ops if the user has denied permission. */
+async function saveToPhotosAlbum(fileUri: string): Promise<void> {
+  try {
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (!perm.granted) return;
+    const asset = await MediaLibrary.createAssetAsync(fileUri);
+    try {
+      const album = await MediaLibrary.getAlbumAsync(PHOTOS_ALBUM);
+      if (album) {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      } else {
+        await MediaLibrary.createAlbumAsync(PHOTOS_ALBUM, asset, false);
+      }
+    } catch {
+      // Album operations can fail on some iOS versions; the asset is still saved to the camera roll.
+    }
+  } catch {
+    // Don't interrupt capture flow if Photos save fails.
+  }
+}
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Camera'>;
 type Route = RouteProp<RootStackParamList, 'Camera'>;
@@ -43,14 +70,31 @@ export default function CameraScreen() {
     if (capturing || !cameraRef.current) return;
     setCapturing(true);
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, skipProcessing: false });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: false });
       if (!photo) return;
+
+      // Standardise every saved photo to 1600px on the long edge so:
+      //  - the report PDF lays out predictably (no surprise portrait shots)
+      //  - the Drawing canvas + SVG overlay stay aligned via a known aspect ratio
+      //  - file size stays small enough to embed multiple photos in one PDF
+      const manipulated = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 1600 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+      );
 
       // Copy to app documents for persistence
       const dir = FileSystem.documentDirectory + 'photos/';
       await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
       const dest = dir + uuidv4() + '.jpg';
-      await FileSystem.copyAsync({ from: photo.uri, to: dest });
+      await FileSystem.copyAsync({ from: manipulated.uri, to: dest });
+
+      // Optionally also save to the device's Photos library (controlled in Company Profile)
+      const profile = await loadCompanyProfile();
+      if (profile.saveToPhotos) {
+        // Fire-and-forget so capture stays snappy
+        saveToPhotosAlbum(dest);
+      }
 
       const inspection = await getInspection(inspectionId);
       if (!inspection) return;
@@ -61,8 +105,9 @@ export default function CameraScreen() {
         takenAt: new Date().toISOString(),
         notes: '',
         severity: 'none',
-        annotations: [],
         drawings: [],
+        width: manipulated.width,
+        height: manipulated.height,
       };
 
       await updateInspection({ ...inspection, photos: [...inspection.photos, newPhoto] });

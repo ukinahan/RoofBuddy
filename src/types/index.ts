@@ -1,17 +1,15 @@
-// ─── Annotation ─────────────────────────────────────────────────────────────
-export interface Annotation {
-  id: string;
-  /** Horizontal position as a fraction of the image width (0.0 – 1.0) */
-  x: number;
-  /** Vertical position as a fraction of the image height (0.0 – 1.0) */
-  y: number;
-  note: string;
-  severity: 'low' | 'medium' | 'high';
-  createdAt: string;
-}
-
 // ─── Drawing ─────────────────────────────────────────────────────────────────
-export type DrawingShape = 'freehand' | 'rectangle' | 'circle' | 'arrow';
+export type DrawingShape =
+  | 'freehand'
+  | 'rectangle'
+  | 'circle'
+  | 'arrow'
+  /** Straight line whose pixel length is converted to a real-world distance via the photo's calibration. */
+  | 'measure-line'
+  /** Rectangle whose pixel area is converted to a real-world area via calibration. */
+  | 'measure-area'
+  /** Special line drawn during calibration. data format: "x1,y1,x2,y2|metres". */
+  | 'calibration';
 
 export interface DrawingPath {
   id: string;
@@ -36,10 +34,18 @@ export interface InspectionPhoto {
   notes: string;
   /** Overall severity rating for this photo */
   severity: PhotoSeverity;
-  annotations: Annotation[];
   drawings: DrawingPath[];
   /** Pixel dimensions of the drawing canvas when drawings were made */
   drawingViewport?: { width: number; height: number };
+  /** Native pixel dimensions of the saved JPEG file. Photos captured before this field was introduced may be undefined; assume 4:3 landscape (1600×1200). */
+  width?: number;
+  height?: number;
+  /** Calibration value: how many on-screen pixels equal 1 metre. Set when the user calibrates against a known reference in the photo. */
+  pixelsPerMeter?: number;
+  /** Tags from the damage preset list (broken_tile, missing_flashing, moss, etc). Used by the report summary to count occurrences across all photos. */
+  damageTags?: string[];
+  /** Set after the photo binary has been uploaded to Supabase Storage. Used by sync to skip already-uploaded photos. */
+  cloudUploaded?: boolean;
 }
 
 // ─── Quote ───────────────────────────────────────────────────────────────────
@@ -57,9 +63,23 @@ export interface Quote {
   lineItems: QuoteLineItem[];
 }
 
-// ─── Inspection ──────────────────────────────────────────────────────────────
+// ─── Customer ────────────────────────────────────────────────────────────────
+export interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Inspection ───────────────────────────────────────────────────────────────
 export interface Inspection {
   id: string;
+  /** Optional link to a Customer record. */
+  customerId?: string;
   customerName: string;
   customerEmail: string;
   address: string;
@@ -115,18 +135,25 @@ export interface CompanyProfile {
   quoteValidDays: number;
   /** Local file URI of custom logo, or empty to use bundled default */
   logoUri: string;
+  /** When true, photos taken with the in-app camera are also saved to the device's Photos library. */
+  saveToPhotos: boolean;
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 export type RootStackParamList = {
   Home: undefined;
-  NewInspection: undefined;
+  NewInspection: { customerId?: string } | undefined;
   Inspection: { inspectionId: string };
   Camera: { inspectionId: string };
   PhotoDetail: { inspectionId: string; photoId: string };
   Report: { inspectionId: string };
   Quote: { inspectionId: string };
   CompanyProfile: undefined;
+  CustomersList: undefined;
+  CustomerDetail: { customerId: string };
+  Settings: undefined;
+  Jobs: undefined;
+  Auth: undefined;
 };
 
 

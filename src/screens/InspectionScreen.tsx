@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { RootStackParamList, Inspection, InspectionPhoto } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
 import PhotoCard from '../components/PhotoCard';
+import { useResponsive } from '../utils/responsive';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Inspection'>;
 type Route = RouteProp<RootStackParamList, 'Inspection'>;
@@ -28,6 +29,7 @@ export default function InspectionScreen() {
 
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
+  const { isTablet, photoColumns, contentMaxWidth } = useResponsive();
 
   const load = useCallback(async () => {
     const data = await getInspection(inspectionId);
@@ -60,7 +62,6 @@ export default function InspectionScreen() {
       takenAt: new Date().toISOString(),
       notes: '',
       severity: 'none',
-      annotations: [],
       drawings: [],
     };
     const updated = { ...inspection, photos: [...inspection.photos, photo] };
@@ -129,10 +130,14 @@ export default function InspectionScreen() {
 
       {/* Photo Grid */}
       <FlatList
+        key={`cols-${photoColumns}`}
         data={inspection.photos}
         keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.grid}
+        numColumns={photoColumns}
+        contentContainerStyle={[
+          styles.grid,
+          { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' },
+        ]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No photos yet. Tap a button below to add photos.</Text>
@@ -154,6 +159,7 @@ export default function InspectionScreen() {
 
       {/* Bottom Buttons */}
       <View style={styles.bottomBar}>
+        <View style={[styles.bottomBarInner, isTablet && { maxWidth: 720, alignSelf: 'center' }]}>
         <TouchableOpacity style={styles.iconBtn} onPress={handleCamera} activeOpacity={0.85}>
           <Text style={styles.iconEmoji}>📷</Text>
           <Text style={styles.iconLabel}>Camera</Text>
@@ -178,6 +184,7 @@ export default function InspectionScreen() {
           <Text style={styles.iconEmoji}>📋</Text>
           <Text style={styles.iconLabel}>Report</Text>
         </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -203,12 +210,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     padding: 12,
     paddingBottom: 28,
+  },
+  bottomBarInner: {
+    flexDirection: 'row',
     gap: 10,
   },
   iconBtn: {

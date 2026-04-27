@@ -3,24 +3,31 @@ import { Inspection } from '../types';
 
 const INSPECTIONS_KEY = '@roof_inspector:inspections';
 
+const INSPECTION_DEFAULTS = {
+  ref: '',
+  conditions: '',
+  scopeOfWorks: 'Roof Survey',
+  overview: '',
+  reportNo: '01',
+  conclusion: '',
+  costOfRepairs: 0,
+};
+
 /** Fill in missing fields for inspections saved before new fields were added. */
 function normalizeInspection(i: Inspection): Inspection {
   return {
-    ref: '',
-    conditions: '',
-    scopeOfWorks: 'Roof Survey',
-    overview: '',
-    reportNo: '01',
-    conclusion: '',
-    costOfRepairs: 0,
+    ...INSPECTION_DEFAULTS,
     ...i,
     quote: i.quote ?? { lineItems: [] },
-    photos: (i.photos ?? []).map((p) => ({
-      annotations: [],
-      drawings: [],
-      severity: 'none',
-      ...p,
-    })),
+    photos: (i.photos ?? []).map((p) => {
+      // Drop legacy `annotations` field if present from older saves
+      const { annotations: _legacy, ...rest } = p as any;
+      return {
+        drawings: [],
+        severity: 'none',
+        ...rest,
+      };
+    }),
   };
 }
 

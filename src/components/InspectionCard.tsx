@@ -9,9 +9,8 @@ interface Props {
 }
 
 export default function InspectionCard({ inspection, onPress, onDelete }: Props) {
-  const allAnnotations = inspection.photos.flatMap((p) => p.annotations);
-  const highCount = allAnnotations.filter((a) => a.severity === 'high').length;
-  const totalConcerns = allAnnotations.length;
+  const highCount = inspection.photos.filter((p) => p.severity === 'high').length;
+  const totalConcerns = inspection.photos.filter((p) => p.severity !== 'none').length;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>

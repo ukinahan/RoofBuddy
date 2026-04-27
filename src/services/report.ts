@@ -8,10 +8,14 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as MailComposer from 'expo-mail-composer';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Dimensions } from 'react-native';
-import { Inspection, InspectionPhoto, Annotation, DrawingPath, CompanyProfile } from '../types';
+import { Inspection, InspectionPhoto, DrawingPath, CompanyProfile } from '../types';
 import { loadCompanyProfile, getTermsAndConditions } from './company';
 import { addressToSatelliteUri } from './maps';
+import { resolvePhotoUri } from './photoUri';
+import { loadLocale, formatCurrencyWith, getLocaleTag } from './locale';
+import { summariseDamage } from './damagePresets';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,13 +42,44 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+function fmtMeasureLength(meters: number, units: 'metric' | 'imperial' = 'metric'): string {
+  if (units === 'imperial') {
+    const ft = meters * 3.28084;
+    return ft >= 10 ? `${ft.toFixed(1)} ft` : `${(meters * 39.3701).toFixed(1)} in`;
+  }
+  return meters >= 1 ? `${meters.toFixed(2)} m` : `${(meters * 100).toFixed(0)} cm`;
+}
+
+function fmtMeasureArea(sqM: number, units: 'metric' | 'imperial' = 'metric'): string {
+  if (units === 'imperial') return `${(sqM * 10.7639).toFixed(1)} ft\u00b2`;
+  return `${sqM.toFixed(2)} m\u00b2`;
+}
+
 /**
  * Convert a local file URI to an inline base64 data URI so the PDF renderer
  * can embed the image without needing network access.
+ *
+ * Photos are downscaled to a max dimension of 1600px and re-compressed at
+ * quality 0.7 before embedding. This keeps the resulting PDF small enough to
+ * email (typical ~250-400 KB per photo vs. 2-4 MB straight from the camera)
+ * and avoids out-of-memory crashes on older devices when many photos are
+ * embedded into a single document.
  */
 async function toDataUri(localUri: string): Promise<string> {
   try {
-    const base64 = await FileSystem.readAsStringAsync(localUri, {
+    const resolved = resolvePhotoUri(localUri) || localUri;
+    let sourceUri = resolved;
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        resolved,
+        [{ resize: { width: 1600 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      sourceUri = result.uri;
+    } catch {
+      // If manipulation fails (e.g. unsupported format), fall back to the original file.
+    }
+    const base64 = await FileSystem.readAsStringAsync(sourceUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
     return `data:image/jpeg;base64,${base64}`;
@@ -53,7 +88,11 @@ async function toDataUri(localUri: string): Promise<string> {
   }
 }
 
-function drawingToSvgElement(d: DrawingPath): string {
+function drawingToSvgElement(
+  d: DrawingPath,
+  pixelsPerMeter?: number,
+  units: 'metric' | 'imperial' = 'metric',
+): string {
   const sw = d.strokeWidth;
   const color = d.color;
   if (d.shape === 'freehand') {
@@ -80,6 +119,33 @@ function drawingToSvgElement(d: DrawingPath): string {
     const dStr = `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} M ${x2.toFixed(1)} ${y2.toFixed(1)} L ${p1x} ${p1y} M ${x2.toFixed(1)} ${y2.toFixed(1)} L ${p2x} ${p2y}`;
     return `<path d="${dStr}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>`;
   }
+  if (d.shape === 'measure-line') {
+    const [x1, y1, x2, y2] = d.data.split(',').map(Number);
+    const px = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    const label = pixelsPerMeter && pixelsPerMeter > 0
+      ? fmtMeasureLength(px / pixelsPerMeter, units)
+      : `${px.toFixed(0)} px`;
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2 - 6;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>` +
+      `<text x="${cx}" y="${cy}" font-size="14" font-weight="bold" fill="${color}" stroke="white" stroke-width="3" paint-order="stroke" text-anchor="middle">${escapeHtml(label)}</text>`;
+  }
+  if (d.shape === 'measure-area') {
+    const [x, y, w, h] = d.data.split(',').map(Number);
+    const label = pixelsPerMeter && pixelsPerMeter > 0
+      ? fmtMeasureArea((w / pixelsPerMeter) * (h / pixelsPerMeter), units)
+      : `${(w * h).toFixed(0)} px²`;
+    const cx = x + w / 2;
+    const cy = y + h / 2 + 4;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" stroke="${color}" stroke-width="${sw}" fill="${color}" fill-opacity="0.12"/>` +
+      `<text x="${cx}" y="${cy}" font-size="14" font-weight="bold" fill="${color}" stroke="white" stroke-width="3" paint-order="stroke" text-anchor="middle">${escapeHtml(label)}</text>`;
+  }
+  if (d.shape === 'calibration') {
+    // Render lightly so it doesn't dominate the report.
+    const [coords] = d.data.split('|');
+    const [x1, y1, x2, y2] = coords.split(',').map(Number);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${sw}" stroke-dasharray="6,4" stroke-linecap="round" opacity="0.6"/>`;
+  }
   return '';
 }
 
@@ -88,9 +154,10 @@ function drawingToSvgElement(d: DrawingPath): string {
 async function getLogoDataUri(customLogoUri?: string): Promise<string> {
   try {
     if (customLogoUri) {
-      const info = await FileSystem.getInfoAsync(customLogoUri);
+      const resolved = resolvePhotoUri(customLogoUri) || customLogoUri;
+      const info = await FileSystem.getInfoAsync(resolved);
       if (info.exists) {
-        const base64 = await FileSystem.readAsStringAsync(customLogoUri, {
+        const base64 = await FileSystem.readAsStringAsync(resolved, {
           encoding: FileSystem.EncodingType.Base64,
         });
         return `data:image/png;base64,${base64}`;
@@ -108,13 +175,16 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function fmtDateOrdinal(isoOrDate: string | Date): string {
+function fmtDateOrdinal(isoOrDate: string | Date, localeTag = 'en-IE'): string {
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
-  return `${ordinal(d.getDate())} ${d.toLocaleString('en-IE', { month: 'long' })} ${d.getFullYear()}`;
+  return `${ordinal(d.getDate())} ${d.toLocaleString(localeTag, { month: 'long' })} ${d.getFullYear()}`;
 }
 
 async function buildHtml(inspection: Inspection): Promise<string> {
   const co = await loadCompanyProfile();
+  const locale = await loadLocale();
+  const localeTag = getLocaleTag(locale.language, locale.region);
+  const fmtMoney = (n: number) => formatCurrencyWith(n, locale);
   const [logoUri, satelliteUri] = await Promise.all([
     getLogoDataUri(co.logoUri),
     addressToSatelliteUri(inspection.address),
@@ -123,8 +193,8 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     ? `<img src="${logoUri}" style="width:100%;max-width:300px;height:auto;display:block;margin-bottom:0;"/>`
     : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:0;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:14px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
 
-  const surveyDateStr = fmtDateOrdinal(inspection.date);
-  const reportDateStr = fmtDateOrdinal(new Date());
+  const surveyDateStr = fmtDateOrdinal(inspection.date, localeTag);
+  const reportDateStr = fmtDateOrdinal(new Date(), localeTag);
   const year = new Date(inspection.date).getFullYear();
   const photoDataUris = await Promise.all(inspection.photos.map((p) => toDataUri(p.uri)));
 
@@ -177,6 +247,15 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       <table class="ov-table">
         ${ovRows.map(([lbl, val]) => `<tr><td class="ov-lbl">${lbl}</td><td class="ov-val"><strong>${val}</strong></td></tr>`).join('')}
       </table>
+      ${(() => {
+        const damageSummary = summariseDamage(inspection.photos);
+        return damageSummary
+          ? `<div style="margin-top:18px;padding:14px 16px;background:#fff5f0;border-left:4px solid #c0392b;border-radius:4px;">
+              <div style="font-size:11px;font-weight:700;color:#c0392b;letter-spacing:1px;margin-bottom:6px;">DAMAGE FOUND</div>
+              <div style="font-size:13px;color:#333;line-height:18px;">${escapeHtml(damageSummary)}</div>
+            </div>`
+          : '';
+      })()}
       ${satelliteUri ? `
       <div class="map-section">
         <div class="map-label">Satellite View</div>
@@ -193,19 +272,24 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     const severityColor = SEVERITY_COLOR[severity] || '';
     const severityLabel = SEVERITY_LABEL[severity] || '';
 
-    // Build SVG overlay for drawings
+    // Build SVG overlay for drawings.
+    // viewBox MUST match the canvas the drawings were made against (drawingViewport),
+    // NOT the resized photo dimensions. preserveAspectRatio="xMidYMid meet" keeps
+    // the SVG layer aligned with the photo even when the container aspect differs slightly.
     const drawings = photo.drawings ?? [];
     const vp = photo.drawingViewport ?? { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.75 };
     let drawingSvg = '';
     if (drawings.length > 0) {
-      const svgElements = drawings.map(drawingToSvgElement).join('');
-      drawingSvg = `<svg class="drawing-overlay" viewBox="0 0 ${vp.width} ${vp.height}" preserveAspectRatio="none">${svgElements}</svg>`;
+      const svgElements = drawings
+        .map((d) => drawingToSvgElement(d, photo.pixelsPerMeter, locale.units))
+        .join('');
+      drawingSvg = `<svg class="drawing-overlay" viewBox="0 0 ${vp.width} ${vp.height}" preserveAspectRatio="xMidYMid meet">${svgElements}</svg>`;
     }
 
     return `
       <div class="photo-block">
         <h2 class="photo-title">Photo ${picNum}</h2>
-        <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString('en-IE')}</p>
+        <p class="photo-meta">Captured: ${new Date(photo.takenAt).toLocaleString(localeTag)}</p>
         <div class="photo-wrap">
           ${uri
             ? `<div class="pic-container"><img src="${uri}" class="pic-img"/>${drawingSvg}</div>`
@@ -242,7 +326,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   if (hasConcl) {
     const vat = cost * co.vatRate;
     const total = cost + vat;
-    const fe = (n: number) => '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const fe = (n: number) => fmtMoney(n);
     conclusionPage = `
     <div class="page">
       <div class="page-inner">
@@ -280,7 +364,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-block:last-child { border-bottom: none; margin-bottom: 0; }
     .photo-wrap { margin-bottom: 38px; }
     .pic-container { position: relative; width: 69%; margin: 0 auto; }
-    .pic-img { display: block; width: 100%; height: auto; transform: scaleY(1.1); transform-origin: top center; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
+    .pic-img { display: block; width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
     .drawing-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
@@ -349,18 +433,20 @@ export async function emailReport(inspection: Inspection, pdfUri: string): Promi
 }
 
 // ─── Quote PDF ───────────────────────────────────────────────────────────────
-
-const formatEuro = (n: number) =>
-  '€' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-function buildQuoteHtml(inspection: Inspection, co: CompanyProfile, logoUri: string = ''): string {
+function buildQuoteHtml(
+  inspection: Inspection,
+  co: CompanyProfile,
+  logoUri: string,
+  fmtMoney: (n: number) => string,
+  localeTag: string,
+): string {
   const tAndC = getTermsAndConditions(co);
   const items = inspection.quote?.lineItems ?? [];
   const subTotal = items.reduce((s, i) => s + i.totalPrice, 0);
   const vat = subTotal * co.vatRate;
   const grandTotal = subTotal + vat;
 
-  const dateFormatted = fmtDateOrdinal(inspection.date);
+  const dateFormatted = fmtDateOrdinal(inspection.date, localeTag);
 
   const logoHtml = logoUri
     ? `<img src="${logoUri}" style="max-width:180px;height:auto;display:block;margin:0 auto 10px;"/>`
@@ -406,7 +492,7 @@ function buildQuoteHtml(inspection: Inspection, co: CompanyProfile, logoUri: str
     <tr>
       <td class="qty-cell">${escapeHtml(item.qty)}</td>
       <td class="desc-cell">${escapeHtml(item.description).replace(/\n/g, '<br/>')}</td>
-      <td class="price-cell">${item.totalPrice > 0 ? formatEuro(item.totalPrice) : ''}</td>
+      <td class="price-cell">${item.totalPrice > 0 ? fmtMoney(item.totalPrice) : ''}</td>
     </tr>`).join('');
 
   const quotePage = `
@@ -432,15 +518,15 @@ function buildQuoteHtml(inspection: Inspection, co: CompanyProfile, logoUri: str
     <table class="totals-table">
       <tr>
         <td class="totals-label">Sub Total</td>
-        <td class="totals-value">${formatEuro(subTotal)}</td>
+        <td class="totals-value">${fmtMoney(subTotal)}</td>
       </tr>
       <tr>
         <td class="totals-label">VAT @ ${(co.vatRate * 100).toFixed(1)}%</td>
-        <td class="totals-value">${formatEuro(vat)}</td>
+        <td class="totals-value">${fmtMoney(vat)}</td>
       </tr>
       <tr class="grand-total-row">
         <td class="totals-label">Grand Total</td>
-        <td class="totals-value">${formatEuro(grandTotal)}</td>
+        <td class="totals-value">${fmtMoney(grandTotal)}</td>
       </tr>
     </table>
 
@@ -511,7 +597,10 @@ function buildQuoteHtml(inspection: Inspection, co: CompanyProfile, logoUri: str
 export async function generateQuotePDF(inspection: Inspection): Promise<string> {
   const co = await loadCompanyProfile();
   const logoUri = await getLogoDataUri(co.logoUri);
-  const html = buildQuoteHtml(inspection, co, logoUri);
+  const locale = await loadLocale();
+  const localeTag = getLocaleTag(locale.language, locale.region);
+  const fmtMoney = (n: number) => formatCurrencyWith(n, locale);
+  const html = buildQuoteHtml(inspection, co, logoUri, fmtMoney, localeTag);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   return uri;
 }

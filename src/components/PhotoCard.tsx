@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { InspectionPhoto } from '../types';
+import { resolvePhotoUri } from '../services/photoUri';
 
 interface Props {
   photo: InspectionPhoto;
@@ -15,17 +16,17 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 export default function PhotoCard({ photo, onPress, onDelete }: Props) {
-  const highCount = photo.annotations.filter((a) => a.severity === 'high').length;
+  const sev = photo.severity;
   const dominantColor =
-    highCount > 0
-      ? SEVERITY_COLOR.high
-      : photo.annotations.length > 0
-      ? SEVERITY_COLOR.medium
-      : '#2e8b57';
+    sev === 'high' ? SEVERITY_COLOR.high
+    : sev === 'medium' ? SEVERITY_COLOR.medium
+    : sev === 'low' ? SEVERITY_COLOR.low
+    : '#2e8b57';
+  const showSeverityBadge = sev && sev !== 'none';
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="cover" />
+      <Image source={{ uri: resolvePhotoUri(photo.uri) }} style={styles.image} resizeMode="cover" />
 
       {/* Delete button */}
       {onDelete && (
@@ -41,17 +42,10 @@ export default function PhotoCard({ photo, onPress, onDelete }: Props) {
         </TouchableOpacity>
       )}
 
-      {/* AI badge */}
-      {photo.aiAnalyzed && (
-        <View style={styles.aiBadge}>
-          <Text style={styles.aiBadgeText}>AI ✓</Text>
-        </View>
-      )}
-
-      {/* Concern count badge */}
-      {photo.annotations.length > 0 && (
+      {/* Severity badge */}
+      {showSeverityBadge && (
         <View style={[styles.countBadge, { backgroundColor: dominantColor }]}>
-          <Text style={styles.countBadgeText}>{photo.annotations.length}</Text>
+          <Text style={styles.countBadgeText}>{sev[0].toUpperCase()}</Text>
         </View>
       )}
 
