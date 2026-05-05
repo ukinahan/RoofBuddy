@@ -30,3 +30,9 @@ Thumbs.db
 
 # Jest
 coverage/
+
+# scratch / log dumps
+build.txt
+builds.txt
+create.txt
+env_list.txt

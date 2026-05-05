@@ -13,6 +13,7 @@ import { Dimensions } from 'react-native';
 import { Inspection, InspectionPhoto, DrawingPath, CompanyProfile } from '../types';
 import { loadCompanyProfile, getTermsAndConditions } from './company';
 import { addressToSatelliteUri } from './maps';
+import { getSupabase, isSupabaseConfigured } from './supabase';
 import { resolvePhotoUri } from './photoUri';
 import { loadLocale, formatCurrencyWith, getLocaleTag } from './locale';
 import { summariseDamage } from './damagePresets';
@@ -65,24 +66,55 @@ function fmtMeasureArea(sqM: number, units: 'metric' | 'imperial' = 'metric'): s
  * and avoids out-of-memory crashes on older devices when many photos are
  * embedded into a single document.
  */
-async function toDataUri(localUri: string): Promise<string> {
+async function toDataUri(photo: InspectionPhoto): Promise<string> {
+  // 1. Try the local file (resized + re-encoded for size).
   try {
-    const resolved = resolvePhotoUri(localUri) || localUri;
-    let sourceUri = resolved;
-    try {
-      const result = await ImageManipulator.manipulateAsync(
-        resolved,
-        [{ resize: { width: 1600 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
-      );
-      sourceUri = result.uri;
-    } catch {
-      // If manipulation fails (e.g. unsupported format), fall back to the original file.
+    const resolved = resolvePhotoUri(photo.uri) || photo.uri;
+    const info = await FileSystem.getInfoAsync(resolved).catch(() => null);
+    if (info?.exists) {
+      let sourceUri = resolved;
+      try {
+        const result = await ImageManipulator.manipulateAsync(
+          resolved,
+          [{ resize: { width: 1600 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
+        );
+        sourceUri = result.uri;
+      } catch {
+        // If manipulation fails (e.g. unsupported format), fall back to the original file.
+      }
+      const base64 = await FileSystem.readAsStringAsync(sourceUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return `data:image/jpeg;base64,${base64}`;
     }
-    const base64 = await FileSystem.readAsStringAsync(sourceUri, {
-      encoding: FileSystem.EncodingType.Base64,
+  } catch {
+    // fall through to cloud fallback
+  }
+
+  // 2. Local file missing (e.g. iOS container UUID rotated, or photo was
+  //    synced from another device but not yet pulled). Pull bytes directly
+  //    from Supabase Storage so the report still has the image even if a
+  //    full sync hasn't been run.
+  if (!isSupabaseConfigured()) return '';
+  try {
+    const sb = getSupabase();
+    if (!sb) return '';
+    const { data: userData } = await sb.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return '';
+    const { data, error } = await sb.storage
+      .from('photos')
+      .download(`${userId}/${photo.id}.jpg`);
+    if (error || !data) return '';
+    // Read the blob as a data URL and return the data: portion directly —
+    // avoids decoding/re-encoding the bytes.
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onerror = () => resolve('');
+      reader.onloadend = () => resolve(String(reader.result ?? ''));
+      reader.readAsDataURL(data);
     });
-    return `data:image/jpeg;base64,${base64}`;
   } catch {
     return '';
   }
@@ -154,13 +186,33 @@ function drawingToSvgElement(
 async function getLogoDataUri(customLogoUri?: string): Promise<string> {
   try {
     if (customLogoUri) {
+      // Already an inline data URI (the new storage format) — use as-is.
+      if (customLogoUri.startsWith('data:')) return customLogoUri;
       const resolved = resolvePhotoUri(customLogoUri) || customLogoUri;
       const info = await FileSystem.getInfoAsync(resolved);
       if (info.exists) {
         const base64 = await FileSystem.readAsStringAsync(resolved, {
           encoding: FileSystem.EncodingType.Base64,
         });
-        return `data:image/png;base64,${base64}`;
+        // Sniff the actual image type from the leading base64 magic bytes.
+        // ImagePicker often returns JPEG even when we save with a .png name,
+        // and a wrong MIME type makes Chrome / expo-print drop the image
+        // silently in the rendered PDF.
+        const head = base64.substring(0, 16);
+        let mime = 'image/png';
+        if (head.startsWith('/9j/')) mime = 'image/jpeg';
+        else if (head.startsWith('R0lG')) mime = 'image/gif';
+        else if (head.startsWith('UklGR')) mime = 'image/webp';
+        else if (head.startsWith('PHN2Zy') || head.startsWith('PD94bW')) mime = 'image/svg+xml';
+        else if (head.startsWith('iVBORw')) mime = 'image/png';
+        else {
+          // Fall back to extension if magic bytes are unrecognised.
+          const lower = resolved.toLowerCase();
+          if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) mime = 'image/jpeg';
+          else if (lower.endsWith('.webp')) mime = 'image/webp';
+          else if (lower.endsWith('.svg')) mime = 'image/svg+xml';
+        }
+        return `data:${mime};base64,${base64}`;
       }
     }
     return '';
@@ -180,6 +232,104 @@ function fmtDateOrdinal(isoOrDate: string | Date, localeTag = 'en-IE'): string {
   return `${ordinal(d.getDate())} ${d.toLocaleString(localeTag, { month: 'long' })} ${d.getFullYear()}`;
 }
 
+// ─── Branded cover page (shared by inspection report and quote) ──────────────
+//
+// Renders a standalone front page that matches the printed Roof Survey Report
+// template:
+//
+//   ┌──────────────────────────────────────────────────────┐
+//   │ [navy band]  TITLE                        TODAY      │
+//   │ [blue][green][orange][yellow] stripe                 │
+//   │                                                      │
+//   │                  [logo]                              │
+//   │                Roof Report                           │
+//   │                                                      │
+//   │      ┌──────── red-bordered ────────┐                │
+//   │      │   Customer name              │                │
+//   │      │   Customer address           │                │
+//   │      └──────────────────────────────┘                │
+//   │                                                      │
+//   │ [blue][green][orange][yellow] stripe                 │
+//   │              Company name / address                  │
+//   │              www / email / tel                       │
+//   └──────────────────────────────────────────────────────┘
+function buildBrandedCoverPage(opts: {
+  title: string;
+  dateStr: string;
+  customerName: string;
+  customerAddressLines: string[];
+  co: CompanyProfile;
+  logoImg: string;
+}): string {
+  const { title, dateStr, customerName, customerAddressLines, co, logoImg } = opts;
+  const customerLines = [customerName, ...customerAddressLines]
+    .map((l) => `<div>${escapeHtml(l)}</div>`)
+    .join('');
+  return `
+  <div class="bcover">
+    <div class="bcover-topband">
+      <span class="bcover-topband-title">${escapeHtml(title)}</span>
+      <span class="bcover-topband-date">${escapeHtml(dateStr)}</span>
+    </div>
+    <div class="bcover-stripes">
+      <span style="background:#1565c0;"></span>
+      <span style="background:#2e7d32;"></span>
+      <span style="background:#ef6c00;"></span>
+      <span style="background:#f9a825;"></span>
+    </div>
+
+    <div class="bcover-hero">
+      <div class="bcover-logo">${logoImg}</div>
+    </div>
+
+    <div class="bcover-customer">
+      ${customerLines}
+    </div>
+
+    <div class="bcover-spacer"></div>
+
+    <div class="bcover-stripes">
+      <span style="background:#1565c0;"></span>
+      <span style="background:#2e7d32;"></span>
+      <span style="background:#ef6c00;"></span>
+      <span style="background:#f9a825;"></span>
+    </div>
+    <div class="bcover-footer">
+      <div class="bcover-footer-col bcover-footer-left">
+        <div class="bcover-footer-co">${escapeHtml(co.nameLine1)}${co.nameLine2 ? ' ' + escapeHtml(co.nameLine2) : ''}</div>
+        ${co.website ? `<div>${escapeHtml(co.website)}</div>` : ''}
+      </div>
+      <div class="bcover-footer-divider"></div>
+      <div class="bcover-footer-col bcover-footer-right">
+        ${co.addressLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
+        ${co.eircode ? `<div>${escapeHtml(co.eircode)}</div>` : ''}
+        ${co.email ? `<div>${escapeHtml(co.email)}</div>` : ''}
+        ${co.tel ? `<div>${escapeHtml(co.tel)}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+const BRANDED_COVER_CSS = `
+  .bcover { position: relative; padding: 0; }
+  .bcover-topband { background: #0a2a4a; color: #fff; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; }
+  .bcover-topband-title { }
+  .bcover-topband-date { font-weight: 600; letter-spacing: 0.5px; text-transform: none; }
+  .bcover-stripes { display: flex; height: 8px; width: 100%; }
+  .bcover-stripes span { flex: 1; display: block; height: 100%; }
+  .bcover-hero { text-align: center; padding: 70px 40px 30px; }
+  .bcover-hero .bcover-logo img { max-width: 220px; height: auto; margin: 0 auto; display: block; }
+  .bcover-wordmark { font-size: 38px; font-weight: 800; color: #1a3c5e; margin-top: 14px; letter-spacing: 0.5px; }
+  .bcover-customer { margin: 30px auto 0; width: 78%; min-height: 200px; border: 8px solid #0a2a4a; border-style: outset; padding: 36px 24px; text-align: center; font-size: 18px; line-height: 2.0; color: #222; font-weight: 600; box-shadow: inset 0 0 0 2px #1a3c5e, 4px 4px 10px rgba(0,0,0,0.18); }
+  .bcover-spacer { min-height: 30px; }
+  .bcover-footer { display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 22px 32px 32px; font-size: 15px; line-height: 1.7; color: #222; }
+  .bcover-footer-col { flex: 0 1 auto; }
+  .bcover-footer-left { text-align: right; }
+  .bcover-footer-right { text-align: left; }
+  .bcover-footer-divider { width: 2px; background: #0a2a4a; align-self: stretch; }
+  .bcover-footer .bcover-footer-co { font-weight: 800; color: #0a2a4a; font-size: 17px; margin-bottom: 4px; letter-spacing: 0.3px; }
+`;
+
 async function buildHtml(inspection: Inspection): Promise<string> {
   const co = await loadCompanyProfile();
   const locale = await loadLocale();
@@ -196,35 +346,21 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const surveyDateStr = fmtDateOrdinal(inspection.date, localeTag);
   const reportDateStr = fmtDateOrdinal(new Date(), localeTag);
   const year = new Date(inspection.date).getFullYear();
-  const photoDataUris = await Promise.all(inspection.photos.map((p) => toDataUri(p.uri)));
+  const photoDataUris = await Promise.all(inspection.photos.map((p) => toDataUri(p)));
 
   const custLines = inspection.address.split(',').map((l) => l.trim()).filter(Boolean);
 
-  // ── Page 1: Cover ──────────────────────────────────────────────────────────
-  const coverPage = `
-  <div class="page-cover">
-    <div class="cover-left">
-      <div class="cover-logo-wrap">${logoImg}</div>
-      <div class="cover-title-band">Roof Survey Report</div>
-      <div class="customer-box">
-        ${[inspection.customerName, ...custLines].map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
-      </div>
-    </div>
-    <div class="cover-right">
-      <div class="cover-year">${year}</div>
-      <div class="cover-co" style="margin-top:200px;">
-        ${inspection.inspectorName ? `<div class="cover-inspector">${escapeHtml(inspection.inspectorName)}</div>` : ''}
-        <div>${escapeHtml(co.nameLine1)}</div>
-        <div>${escapeHtml(co.nameLine2)}</div>
-        ${co.addressLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')}
-        <div>${co.eircode}</div>
-        <div class="cover-link" style="margin-top:10px;">${co.website}</div>
-        <div class="cover-link">${co.email}</div>
-        <div style="margin-top:14px;">${co.tel}</div>
-      </div>
-      <div class="cover-date" style="margin-top:80px;">${surveyDateStr}</div>
-    </div>
-  </div>`;
+  // ── Page 1: Branded cover ──────────────────────────────────────────────────
+  const coverPage = buildBrandedCoverPage({
+    title: 'Roof Survey Report',
+    dateStr: reportDateStr,
+    customerName: inspection.customerName,
+    customerAddressLines: custLines,
+    co,
+    logoImg,
+  });
+  // (year retained for backwards-compat with any future references)
+  void year;
 
   // ── Page 2: Project Overview ───────────────────────────────────────────────
   const ovRows: Array<[string, string]> = [
@@ -264,7 +400,11 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     </div>
   </div>`;
 
-  // ── Pages 3+: Photos (2 per page, side by side) ───────────────────────────
+  // ── Pages 3+: Photos in continuous flow ───────────────────────────────────
+  // Each photo block uses `page-break-inside: avoid` so the browser packs
+  // them as densely as possible — odd photo counts no longer leave a half
+  // empty trailing page, and the conclusion can flow onto whatever space
+  // remains after the last photo.
   const photoPageHtmlArr: string[] = [];
 
   const buildPhotoBlock = (photo: typeof inspection.photos[0], picNum: number, uri: string | null): string => {
@@ -306,40 +446,41 @@ async function buildHtml(inspection: Inspection): Promise<string> {
       </div>`;
   };
 
-  for (let i = 0; i < inspection.photos.length; i += 2) {
-    const uriA = photoDataUris[i];
-    const uriB = photoDataUris[i + 1] ?? null;
-    const photoB = inspection.photos[i + 1];
-    photoPageHtmlArr.push(`
-    <div class="page">
-      <div class="page-inner">
-        ${buildPhotoBlock(inspection.photos[i], i + 1, uriA)}
-        ${photoB ? buildPhotoBlock(photoB, i + 2, uriB) : ''}
-      </div>
-    </div>`);
-  }
+  const photoBlocks = inspection.photos
+    .map((p, i) => buildPhotoBlock(p, i + 1, photoDataUris[i]))
+    .join('');
 
-  // ── Conclusion page ────────────────────────────────────────────────────────
+  // ── Conclusion (rendered inline at the end of the photo flow) ─────────────
   const cost = (inspection as any).costOfRepairs || 0;
   const hasConcl = !!((inspection as any).conclusion || cost > 0);
-  let conclusionPage = '';
+  let conclusionBlock = '';
   if (hasConcl) {
     const vat = cost * co.vatRate;
     const total = cost + vat;
     const fe = (n: number) => fmtMoney(n);
-    conclusionPage = `
+    conclusionBlock = `
+      <div class="conclusion-block">
+        ${(inspection as any).conclusion ? `<h2 class="sec-heading">Conclusion</h2><p class="concl-text">${escapeHtml((inspection as any).conclusion)}</p>` : ''}
+        ${cost > 0 ? `<h2 class="sec-heading" style="margin-top:24px;">Cost of Repairs</h2><p class="cost-text">${fe(cost)} Plus VAT @ ${(co.vatRate * 100).toFixed(1)}% = ${fe(total)}</p>` : ''}
+      </div>`;
+  }
+
+  if (photoBlocks || conclusionBlock) {
+    photoPageHtmlArr.push(`
     <div class="page">
       <div class="page-inner">
-        ${(inspection as any).conclusion ? `<h2 class="sec-heading">Conclusion</h2><p class="concl-text">${escapeHtml((inspection as any).conclusion)}</p>` : ''}
-        ${cost > 0 ? `<h2 class="sec-heading" style="margin-top:40px;">Cost of Repairs</h2><p class="cost-text">${fe(cost)} Plus VAT @ ${(co.vatRate * 100).toFixed(1)}% = ${fe(total)}</p>` : ''}
+        ${photoBlocks}
+        ${conclusionBlock}
       </div>
-    </div>`;
+    </div>`);
   }
+  const conclusionPage = '';
 
   // ── CSS ────────────────────────────────────────────────────────────────────
   const css = `<style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #222; }
+    ${BRANDED_COVER_CSS}
     .page-cover { display: table; width: 100%; page-break-after: always; }
     .cover-left { display: table-cell; width: 62%; vertical-align: top; background: #fff; padding-bottom: 40px; }
     .cover-logo-wrap { padding: 40px 36px 0; }
@@ -359,11 +500,12 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .ov-lbl { width: 190px; padding: 14px 20px 14px 10px; text-align: right; text-decoration: underline; font-weight: 500; background: #e8f0dc; color: #333; vertical-align: middle; border-bottom: 1px solid #d4e4c4; }
     .ov-val { padding: 14px 10px; font-size: 14px; vertical-align: middle; border-bottom: 1px solid #e8e8e8; }
     .photo-title { font-size: 16px; font-weight: 700; color: #1a3c5e; margin-bottom: 3px; }
-    .photo-meta { font-size: 11px; color: #999; margin-bottom: 10px; }
-    .photo-block { page-break-inside: avoid; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e8e8e8; }
+    .photo-meta { font-size: 11px; color: #666; margin-bottom: 10px; }
+    .photo-block { page-break-inside: avoid; break-inside: avoid; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #e8e8e8; }
     .photo-block:last-child { border-bottom: none; margin-bottom: 0; }
-    .photo-wrap { margin-bottom: 38px; }
-    .pic-container { position: relative; width: 69%; margin: 0 auto; }
+    .conclusion-block { page-break-inside: avoid; break-inside: avoid; margin-top: 24px; padding-top: 18px; border-top: 1px solid #ccc; }
+    .photo-wrap { margin-bottom: 16px; }
+    .pic-container { position: relative; width: 80%; margin: 0 auto; }
     .pic-img { display: block; width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
     .drawing-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
@@ -447,12 +589,25 @@ function buildQuoteHtml(
   const grandTotal = subTotal + vat;
 
   const dateFormatted = fmtDateOrdinal(inspection.date, localeTag);
+  const todayFormatted = fmtDateOrdinal(new Date(), localeTag);
 
   const logoHtml = logoUri
-    ? `<img src="${logoUri}" style="max-width:180px;height:auto;display:block;margin:0 auto 10px;"/>`
+    ? `<img src="${logoUri}" style="max-width:220px;height:auto;display:block;margin:0 auto;"/>`
     : `<div style="font-size:20px;font-weight:900;color:#1a3c5e;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:12px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
 
-  // ── Page 1: Cover letter ─────────────────────────────────────────────────
+  const quoteAddressLines = inspection.address.split(',').map((l) => l.trim()).filter(Boolean);
+
+  // ── Page 1: Branded cover (matches inspection report front page) ─────────
+  const brandedCover = buildBrandedCoverPage({
+    title: 'Quotation',
+    dateStr: todayFormatted,
+    customerName: inspection.customerName,
+    customerAddressLines: quoteAddressLines,
+    co,
+    logoImg: logoHtml,
+  });
+
+  // ── Page 2: Cover letter ─────────────────────────────────────────────────
   const coverPage = `
   <div class="cover-page">
     <!-- Company header -->
@@ -546,6 +701,7 @@ function buildQuoteHtml(
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #222; font-size: 13px; }
+    ${BRANDED_COVER_CSS}
 
     .cover-page { padding: 40px 44px; page-break-after: always; }
     .quote-page-inner { padding: 40px 44px; }
@@ -587,6 +743,7 @@ function buildQuoteHtml(
   </style>
 </head>
 <body>
+  ${brandedCover}
   ${coverPage}
   <div class="quote-page-inner">${quotePage}</div>
 </body>

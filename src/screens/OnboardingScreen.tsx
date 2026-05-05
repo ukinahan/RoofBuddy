@@ -84,7 +84,7 @@ export default function OnboardingScreen({ onDone }: Props) {
         {/* Page 1: Welcome */}
         <View style={[styles.page, { width: SCREEN_W }]}>
           <Text style={styles.emoji}>🏠</Text>
-          <Text style={styles.h1}>Welcome to RoofBuddy</Text>
+          <Text style={styles.h1}>Welcome to Roof Report</Text>
           <Text style={styles.body}>
             Capture roof photos on-site, mark up problem areas, and generate
             branded PDF reports + customer quotes — all without leaving the app.

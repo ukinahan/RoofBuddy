@@ -45,10 +45,10 @@ export async function exportBackupAndShare(appVersion?: string): Promise<string 
   const bundle = await buildBackup(appVersion);
   const json = JSON.stringify(bundle, null, 2);
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const uri = `${FileSystem.documentDirectory}roofbuddy-backup-${stamp}.json`;
+  const uri = `${FileSystem.documentDirectory}roofreport-backup-${stamp}.json`;
   await FileSystem.writeAsStringAsync(uri, json, { encoding: FileSystem.EncodingType.UTF8 });
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Save RoofBuddy Backup' });
+    await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Save Roof Report Backup' });
   }
   return uri;
 }

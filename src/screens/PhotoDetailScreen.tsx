@@ -24,6 +24,7 @@ import { resolvePhotoUri } from '../services/photoUri';
 import { loadLocale, LocaleSettings, formatLength } from '../services/locale';
 import { useT } from '../services/i18n';
 import DrawingCanvas from '../components/DrawingCanvas';
+import SmartPhoto from '../components/SmartPhoto';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'PhotoDetail'>;
 type Route = RouteProp<RootStackParamList, 'PhotoDetail'>;
@@ -280,7 +281,7 @@ export default function PhotoDetailScreen() {
         </View>
 
         <View style={[styles.imageContainer, { width: canvasW, height: canvasH }]}>
-          <Image source={{ uri: resolvePhotoUri(photo.uri) }} style={{ width: canvasW, height: canvasH }} resizeMode="contain" />
+          <SmartPhoto photo={photo} style={{ width: canvasW, height: canvasH }} resizeMode="contain" />
           <DrawingCanvas
             width={canvasW} height={canvasH}
             drawings={photo.drawings ?? []}

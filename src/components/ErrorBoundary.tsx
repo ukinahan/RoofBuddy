@@ -41,7 +41,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           <Text style={styles.icon}>⚠️</Text>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.body}>
-            RoofBuddy hit an unexpected error. Your saved inspections, customers and
+            Roof Report hit an unexpected error. Your saved inspections, customers and
             photos are still on your device — they have not been lost.
           </Text>
           <Text style={styles.body}>

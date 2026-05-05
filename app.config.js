@@ -10,7 +10,7 @@ module.exports = () => ({
   expo: {
     name: 'Roof Report',
     slug: 'roof-inspector',
-    scheme: 'roofbuddy',
+    scheme: 'roofreport',
     version: '1.5.0',
     orientation: 'default',
     icon: './assets/icon.png',
@@ -40,7 +40,7 @@ module.exports = () => ({
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
       },
-      buildNumber: '25',
+      buildNumber: '26',
     },
     android: {
       adaptiveIcon: {

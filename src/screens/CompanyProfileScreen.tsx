@@ -13,6 +13,7 @@ import {
   Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { CompanyProfile } from '../types';
@@ -56,12 +57,28 @@ export default function CompanyProfileScreen() {
 
     if (!result.canceled && result.assets[0]) {
       try {
-        await FileSystem.makeDirectoryAsync(LOGO_DIR, { intermediates: true });
-        await FileSystem.copyAsync({
-          from: result.assets[0].uri,
-          to: LOGO_PATH,
-        });
-        updateField('logoUri', LOGO_PATH);
+        const asset = result.assets[0];
+        // Downscale + recompress to keep the data URI well under AsyncStorage
+        // size limits and to make it cheap to embed in the PDF.
+        const manipulated = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 600 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        );
+        const base64 = manipulated.base64 ?? (await FileSystem.readAsStringAsync(manipulated.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        }));
+        const dataUri = `data:image/jpeg;base64,${base64}`;
+        // Best-effort: keep a copy on disk for backwards compatibility.
+        try {
+          await FileSystem.makeDirectoryAsync(LOGO_DIR, { intermediates: true });
+          await FileSystem.copyAsync({ from: manipulated.uri, to: LOGO_PATH });
+        } catch { /* ignore — data URI is the source of truth */ }
+        // Persist immediately so the new logo survives even if the user
+        // navigates away without tapping "Save".
+        const next = { ...profile, logoUri: dataUri };
+        setProfile(next);
+        try { await saveCompanyProfile(next); } catch { /* will retry on Save */ }
       } catch {
         Alert.alert('Error', 'Could not save the logo image.');
       }

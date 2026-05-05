@@ -1,9 +1,9 @@
-# RoofBuddy Admin Web Portal — Scope (v0)
+# Roof Report Admin Web Portal — Scope (v0)
 
 ## Goal
 
 Office admins (non-inspectors) need to **review, edit, print and email**
-inspection reports created in the RoofBuddy mobile app, without using a phone.
+inspection reports created in the Roof Report mobile app, without using a phone.
 
 Same Supabase backend → no separate database, no separate auth.
 

@@ -1,12 +1,12 @@
 {
 	"folders": [
 		{
-			"name": "RoofBuddy",
+			"name": "Roof Report",
 			"path": "."
 		}
 	],
 	"settings": {
-		"window.title": "RoofBuddy — ${activeEditorShort}${separator}${rootName}",
+		"window.title": "Roof Report — ${activeEditorShort}${separator}${rootName}",
 		"terminal.integrated.cwd": "C:\\Users\\kinahanultan\\RoofInspector"
 	}
 }

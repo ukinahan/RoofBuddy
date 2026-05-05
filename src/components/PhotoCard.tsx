@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Image, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { InspectionPhoto } from '../types';
-import { resolvePhotoUri } from '../services/photoUri';
+import SmartPhoto from './SmartPhoto';
 
 interface Props {
   photo: InspectionPhoto;
@@ -26,7 +26,7 @@ export default function PhotoCard({ photo, onPress, onDelete }: Props) {
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <Image source={{ uri: resolvePhotoUri(photo.uri) }} style={styles.image} resizeMode="cover" />
+      <SmartPhoto photo={photo} style={styles.image} resizeMode="cover" />
 
       {/* Delete button */}
       {onDelete && (

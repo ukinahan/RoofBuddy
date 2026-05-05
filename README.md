@@ -1,10 +1,15 @@
-# RoofBuddy
+# Roof Report
 
 A mobile app for roof inspectors and surveyors. Capture photos on-site, annotate damage,
 measure problem areas directly on each photo, and generate branded PDF reports + customer
 quotes — all offline.
 
 iOS only at present (Android pipeline configured but not actively shipped).
+
+The companion **admin web portal** (Next.js) lives in [`portal/`](portal/README.md). Both
+share the same Supabase backend and the same PDF template (mobile is the source of truth
+at [src/services/report.ts](src/services/report.ts), ported for Node at
+[portal/src/lib/reportHtml.ts](portal/src/lib/reportHtml.ts)).
 
 ---
 

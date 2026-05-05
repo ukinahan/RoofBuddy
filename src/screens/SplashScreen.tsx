@@ -17,9 +17,13 @@ export default function SplashScreen() {
       try {
         const profile = await loadCompanyProfile();
         if (profile.logoUri) {
-          const info = await FileSystem.getInfoAsync(profile.logoUri);
-          if (info.exists) {
+          if (profile.logoUri.startsWith('data:')) {
             setLogoUri(profile.logoUri);
+          } else {
+            const info = await FileSystem.getInfoAsync(profile.logoUri);
+            if (info.exists) {
+              setLogoUri(profile.logoUri);
+            }
           }
         }
       } catch { /* use default */ }
@@ -51,16 +55,16 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      {logoUri ? (
+      {loaded && (
         <Image
-          source={{ uri: logoUri }}
+          source={logoUri ? { uri: logoUri } : require('../../assets/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-      ) : (
+      )}
+      {loaded && !logoUri && (
         <View style={styles.appNameWrap}>
           <Text style={styles.appName}>Roof Report</Text>
-          <Text style={styles.appTagline}>Inspection Reports</Text>
         </View>
       )}
       <View style={styles.dotsRow}>

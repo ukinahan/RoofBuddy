@@ -17,6 +17,7 @@ import { RootStackParamList, Inspection } from '../types';
 import { getInspection, updateInspection } from '../services/storage';
 import { resolvePhotoUri } from '../services/photoUri';
 import { Loading, LoadFailure } from '../components/LoadFailure';
+import SmartPhoto from '../components/SmartPhoto';
 import { generatePDF, sharePDF, emailReport } from '../services/report';
 import { recordDelightAndMaybePrompt } from '../services/review';
 import { track } from '../services/analytics';
@@ -263,7 +264,7 @@ export default function ReportScreen() {
             const sevColor = sev === 'high' ? '#d32f2f' : sev === 'medium' ? '#f57c00' : sev === 'low' ? '#388e3c' : '#999';
             return (
             <View key={p.id} style={styles.thumb}>
-              <Image source={{ uri: resolvePhotoUri(p.uri) }} style={styles.thumbImg} />
+              <SmartPhoto photo={p} style={styles.thumbImg} />
               <View style={[styles.thumbBadge, { backgroundColor: sevColor }]}>
                 <Text style={styles.thumbBadgeText}>{sev === 'none' ? '–' : sev[0].toUpperCase()}</Text>
               </View>
