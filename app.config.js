@@ -40,7 +40,7 @@ module.exports = () => ({
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
       },
-      buildNumber: '27',
+      buildNumber: '28',
     },
     android: {
       adaptiveIcon: {

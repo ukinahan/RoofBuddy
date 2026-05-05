@@ -342,19 +342,19 @@ function buildBrandedCoverPage(opts: {
 }
 
 const BRANDED_COVER_CSS = `
-  .bcover { position: relative; padding: 0; }
+  .bcover { position: relative; padding: 0; display: flex; flex-direction: column; min-height: 100vh; box-sizing: border-box; }
   .bcover-topband { background: #0a2a4a; color: #fff; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; }
   .bcover-topband-title { }
   .bcover-topband-date { font-weight: 600; letter-spacing: 0.5px; text-transform: none; }
-  .bcover-stripes { display: flex; height: 8px; width: 100%; }
+  .bcover-stripes { display: flex; height: 8px; width: 100%; flex-shrink: 0; }
   .bcover-stripes span { flex: 1; display: block; height: 100%; }
-  .bcover-hero { text-align: center; padding: 70px 40px 30px; }
+  .bcover-hero { text-align: center; padding: 70px 40px 30px; flex-shrink: 0; }
   .bcover-hero .bcover-logo img { max-width: 280px; height: auto; margin: 0 auto; display: block; }
   .bcover-co-name { font-size: 22px; font-weight: 800; color: #0a2a4a; margin-top: 18px; letter-spacing: 0.3px; }
   .bcover-wordmark { font-size: 38px; font-weight: 800; color: #1a3c5e; margin-top: 14px; letter-spacing: 0.5px; }
-  .bcover-customer { margin: 30px auto 0; width: 78%; min-height: 200px; border: 8px solid #0a2a4a; border-style: outset; padding: 36px 24px; text-align: center; font-size: 18px; line-height: 2.0; color: #222; font-weight: 600; box-shadow: inset 0 0 0 2px #1a3c5e, 4px 4px 10px rgba(0,0,0,0.18); }
-  .bcover-spacer { min-height: 30px; }
-  .bcover-footer { display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 22px 32px 32px; font-size: 15px; line-height: 1.7; color: #222; }
+  .bcover-customer { margin: 30px auto 0; width: 78%; min-height: 200px; border: 8px solid #0a2a4a; border-style: outset; padding: 36px 24px; text-align: center; font-size: 18px; line-height: 2.0; color: #222; font-weight: 600; box-shadow: inset 0 0 0 2px #1a3c5e, 4px 4px 10px rgba(0,0,0,0.18); flex-shrink: 0; }
+  .bcover-spacer { flex: 1 1 auto; min-height: 30px; }
+  .bcover-footer { display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 22px 32px 32px; font-size: 15px; line-height: 1.7; color: #222; flex-shrink: 0; }
   .bcover-footer-col { flex: 0 1 auto; }
   .bcover-footer-left { text-align: right; }
   .bcover-footer-right { text-align: left; }
