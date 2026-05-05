@@ -19,15 +19,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { inspection, ownerId } = owned;
 
   const profile = await getCompanyProfile(ownerId).catch(() => null);
-  const pdf = await renderQuotePdf(inspection, profile);
-  const filename = `quotation-${(inspection.customerName || 'quote')
-    .replace(/[^a-z0-9]+/gi, '-')
-    .toLowerCase()}.pdf`;
 
-  return new NextResponse(pdf as unknown as BodyInit, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${filename}"`,
-    },
-  });
+  try {
+    const pdf = await renderQuotePdf(inspection, profile);
+    const filename = `quotation-${(inspection.customerName || 'quote')
+      .replace(/[^a-z0-9]+/gi, '-')
+      .toLowerCase()}.pdf`;
+
+    return new NextResponse(pdf as unknown as BodyInit, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err);
+    console.error('[quote]', msg);
+    return new NextResponse(`Quote generation failed:\n\n${msg}`, {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
 }

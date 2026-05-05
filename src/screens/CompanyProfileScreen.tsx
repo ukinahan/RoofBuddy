@@ -18,6 +18,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { CompanyProfile } from '../types';
 import { loadCompanyProfile, saveCompanyProfile, DEFAULT_COMPANY } from '../services/company';
+import { syncNow } from '../services/sync';
 import { resolvePhotoUri } from '../services/photoUri';
 import { loadLocale, getPostcodeLabel, Region } from '../services/locale';
 import { useResponsive } from '../utils/responsive';
@@ -75,10 +76,15 @@ export default function CompanyProfileScreen() {
           await FileSystem.copyAsync({ from: manipulated.uri, to: LOGO_PATH });
         } catch { /* ignore — data URI is the source of truth */ }
         // Persist immediately so the new logo survives even if the user
-        // navigates away without tapping "Save".
-        const next = { ...profile, logoUri: dataUri };
+        // navigates away without tapping "Save". Bump `updatedAt` so the
+        // background sync pushes it up to Supabase (and from there to the
+        // admin web portal) on the next sync run.
+        const next = { ...profile, logoUri: dataUri, updatedAt: new Date().toISOString() } as CompanyProfile;
         setProfile(next);
         try { await saveCompanyProfile(next); } catch { /* will retry on Save */ }
+        // Best-effort: kick off a sync straight away so the portal sees the
+        // new logo without waiting for the next background sync window.
+        try { syncNow().catch(() => {}); } catch { /* ignore */ }
       } catch {
         Alert.alert('Error', 'Could not save the logo image.');
       }

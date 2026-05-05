@@ -11,7 +11,8 @@
  */
 import 'server-only';
 import type { Browser, LaunchOptions } from 'puppeteer-core';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createClient } from '@/lib/supabase/server';
 import { buildInspectionHtml, buildQuoteHtml, type BuildOptions } from './reportHtml';
 import type { Inspection, CompanyProfile } from './types';
@@ -40,16 +41,22 @@ async function launchBrowser(): Promise<Browser> {
 
   let opts: LaunchOptions;
   if (isServerless) {
-    // Use chromium-min: ~1MB package; the actual Chromium tarball is
-    // downloaded on first request from the URL passed to executablePath().
-    // Override CHROMIUM_REMOTE_URL to pin a specific build.
-    const chromium = (await import('@sparticuz/chromium-min')).default;
-    const remoteUrl =
-      process.env.CHROMIUM_REMOTE_URL ||
-      'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar';
+    // Use the full @sparticuz/chromium package: it bundles the Chromium
+    // binary AND its required shared libraries (libnss3.so, libatk, etc.)
+    // brotli-compressed, so no system packages are needed at runtime.
+    //
+    // Vercel runs functions on AWS Lambda but does NOT set AWS_EXECUTION_ENV,
+    // which the chromium package uses to decide whether to extract the
+    // al2023.tar.br archive (the one containing libnss3.so & friends). If
+    // we don't force-set it, the binary launches but immediately fails with
+    // "libnss3.so: cannot open shared object file".
+    if (!process.env.AWS_EXECUTION_ENV) {
+      process.env.AWS_EXECUTION_ENV = 'AWS_Lambda_nodejs20.x';
+    }
+    const chromium = (await import('@sparticuz/chromium')).default;
     opts = {
       args: chromium.args,
-      executablePath: await chromium.executablePath(remoteUrl),
+      executablePath: await chromium.executablePath(),
       headless: true,
     };
   } else {
@@ -154,6 +161,21 @@ async function fetchLogoAsDataUri(profile: CompanyProfile | null): Promise<strin
 
 // ── Public renderers ────────────────────────────────────────────────────────
 
+// Cache the bundled brand logo as a data URI for the lifetime of the
+// serverless function instance — same bytes for every request.
+let brandLogoDataUriCache: string | null = null;
+function loadBrandLogoDataUri(): string {
+  if (brandLogoDataUriCache !== null) return brandLogoDataUriCache;
+  try {
+    const p = join(process.cwd(), 'public', 'roof-report-logo.png');
+    const b = readFileSync(p).toString('base64');
+    brandLogoDataUriCache = `data:image/png;base64,${b}`;
+  } catch {
+    brandLogoDataUriCache = '';
+  }
+  return brandLogoDataUriCache;
+}
+
 export async function renderInspectionPdf(
   inspection: Inspection,
   profile: CompanyProfile | null,
@@ -166,6 +188,7 @@ export async function renderInspectionPdf(
   const opts: BuildOptions = {
     photoDataUris,
     logoDataUri,
+    brandLogoDataUri: loadBrandLogoDataUri(),
     currency: inspection.quoteCurrency || 'EUR',
   };
   const html = buildInspectionHtml(inspection, profile, opts);
@@ -180,6 +203,7 @@ export async function renderQuotePdf(
   const opts: BuildOptions = {
     photoDataUris: new Map(),
     logoDataUri,
+    brandLogoDataUri: loadBrandLogoDataUri(),
     currency: inspection.quoteCurrency || 'EUR',
   };
   const html = buildQuoteHtml(inspection, profile, opts);

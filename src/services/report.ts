@@ -9,6 +9,7 @@ import * as Sharing from 'expo-sharing';
 import * as MailComposer from 'expo-mail-composer';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Asset } from 'expo-asset';
 import { Dimensions } from 'react-native';
 import { Inspection, InspectionPhoto, DrawingPath, CompanyProfile } from '../types';
 import { loadCompanyProfile, getTermsAndConditions } from './company';
@@ -183,6 +184,28 @@ function drawingToSvgElement(
 
 // ─── HTML Builder ────────────────────────────────────────────────────────────
 
+// Cache the brand logo data URI between renders within a single app session.
+let brandLogoDataUriCache: string | null = null;
+
+/** Loads the bundled Roof Report brand logo (assets/icon.png) as a data URI
+ *  so it can be embedded directly into the printable HTML. */
+async function getBrandLogoDataUri(): Promise<string> {
+  if (brandLogoDataUriCache) return brandLogoDataUriCache;
+  try {
+    const asset = Asset.fromModule(require('../../assets/icon.png'));
+    await asset.downloadAsync();
+    const localUri = asset.localUri || asset.uri;
+    if (!localUri) return '';
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    brandLogoDataUriCache = `data:image/png;base64,${base64}`;
+    return brandLogoDataUriCache;
+  } catch {
+    return '';
+  }
+}
+
 async function getLogoDataUri(customLogoUri?: string): Promise<string> {
   try {
     if (customLogoUri) {
@@ -260,11 +283,18 @@ function buildBrandedCoverPage(opts: {
   customerAddressLines: string[];
   co: CompanyProfile;
   logoImg: string;
+  brandLogoImg: string;
 }): string {
-  const { title, dateStr, customerName, customerAddressLines, co, logoImg } = opts;
+  const { title, dateStr, customerName, customerAddressLines, co, logoImg, brandLogoImg } = opts;
   const customerLines = [customerName, ...customerAddressLines]
     .map((l) => `<div>${escapeHtml(l)}</div>`)
     .join('');
+  // Brand logo (Roof Report) goes at the top of every cover; the company's
+  // own logo (if uploaded) is shown smaller in the bottom footer block. The
+  // company name renders below the brand logo as a centred sub-heading.
+  const companyHeader = co.nameLine1
+    ? `<div class="bcover-co-name">${escapeHtml(co.nameLine1)}${co.nameLine2 ? ' ' + escapeHtml(co.nameLine2) : ''}</div>`
+    : '';
   return `
   <div class="bcover">
     <div class="bcover-topband">
@@ -279,7 +309,8 @@ function buildBrandedCoverPage(opts: {
     </div>
 
     <div class="bcover-hero">
-      <div class="bcover-logo">${logoImg}</div>
+      <div class="bcover-logo">${brandLogoImg}</div>
+      ${companyHeader}
     </div>
 
     <div class="bcover-customer">
@@ -318,7 +349,8 @@ const BRANDED_COVER_CSS = `
   .bcover-stripes { display: flex; height: 8px; width: 100%; }
   .bcover-stripes span { flex: 1; display: block; height: 100%; }
   .bcover-hero { text-align: center; padding: 70px 40px 30px; }
-  .bcover-hero .bcover-logo img { max-width: 220px; height: auto; margin: 0 auto; display: block; }
+  .bcover-hero .bcover-logo img { max-width: 280px; height: auto; margin: 0 auto; display: block; }
+  .bcover-co-name { font-size: 22px; font-weight: 800; color: #0a2a4a; margin-top: 18px; letter-spacing: 0.3px; }
   .bcover-wordmark { font-size: 38px; font-weight: 800; color: #1a3c5e; margin-top: 14px; letter-spacing: 0.5px; }
   .bcover-customer { margin: 30px auto 0; width: 78%; min-height: 200px; border: 8px solid #0a2a4a; border-style: outset; padding: 36px 24px; text-align: center; font-size: 18px; line-height: 2.0; color: #222; font-weight: 600; box-shadow: inset 0 0 0 2px #1a3c5e, 4px 4px 10px rgba(0,0,0,0.18); }
   .bcover-spacer { min-height: 30px; }
@@ -335,13 +367,17 @@ async function buildHtml(inspection: Inspection): Promise<string> {
   const locale = await loadLocale();
   const localeTag = getLocaleTag(locale.language, locale.region);
   const fmtMoney = (n: number) => formatCurrencyWith(n, locale);
-  const [logoUri, satelliteUri] = await Promise.all([
+  const [logoUri, satelliteUri, brandLogoUri] = await Promise.all([
     getLogoDataUri(co.logoUri),
     addressToSatelliteUri(inspection.address),
+    getBrandLogoDataUri(),
   ]);
   const logoImg = logoUri
     ? `<img src="${logoUri}" style="width:100%;max-width:300px;height:auto;display:block;margin-bottom:0;"/>`
     : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:0;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:14px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
+  const brandLogoImg = brandLogoUri
+    ? `<img src="${brandLogoUri}" style="max-width:280px;height:auto;display:block;margin:0 auto;"/>`
+    : `<div class="bcover-wordmark">Roof Report</div>`;
 
   const surveyDateStr = fmtDateOrdinal(inspection.date, localeTag);
   const reportDateStr = fmtDateOrdinal(new Date(), localeTag);
@@ -358,6 +394,7 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     customerAddressLines: custLines,
     co,
     logoImg,
+    brandLogoImg,
   });
   // (year retained for backwards-compat with any future references)
   void year;
@@ -581,6 +618,7 @@ function buildQuoteHtml(
   logoUri: string,
   fmtMoney: (n: number) => string,
   localeTag: string,
+  brandLogoUri: string,
 ): string {
   const tAndC = getTermsAndConditions(co);
   const items = inspection.quote?.lineItems ?? [];
@@ -595,6 +633,10 @@ function buildQuoteHtml(
     ? `<img src="${logoUri}" style="max-width:220px;height:auto;display:block;margin:0 auto;"/>`
     : `<div style="font-size:20px;font-weight:900;color:#1a3c5e;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:12px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
 
+  const brandLogoImg = brandLogoUri
+    ? `<img src="${brandLogoUri}" style="max-width:280px;height:auto;display:block;margin:0 auto;"/>`
+    : `<div class="bcover-wordmark">Roof Report</div>`;
+
   const quoteAddressLines = inspection.address.split(',').map((l) => l.trim()).filter(Boolean);
 
   // ── Page 1: Branded cover (matches inspection report front page) ─────────
@@ -605,6 +647,7 @@ function buildQuoteHtml(
     customerAddressLines: quoteAddressLines,
     co,
     logoImg: logoHtml,
+    brandLogoImg,
   });
 
   // ── Page 2: Cover letter ─────────────────────────────────────────────────
@@ -754,10 +797,11 @@ function buildQuoteHtml(
 export async function generateQuotePDF(inspection: Inspection): Promise<string> {
   const co = await loadCompanyProfile();
   const logoUri = await getLogoDataUri(co.logoUri);
+  const brandLogoUri = await getBrandLogoDataUri();
   const locale = await loadLocale();
   const localeTag = getLocaleTag(locale.language, locale.region);
   const fmtMoney = (n: number) => formatCurrencyWith(n, locale);
-  const html = buildQuoteHtml(inspection, co, logoUri, fmtMoney, localeTag);
+  const html = buildQuoteHtml(inspection, co, logoUri, fmtMoney, localeTag, brandLogoUri);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   return uri;
 }

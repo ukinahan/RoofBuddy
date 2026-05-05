@@ -24,15 +24,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // reports under the inspector's branding.
   const profile = await getCompanyProfile(ownerId).catch(() => null);
 
-  const pdf = await renderInspectionPdf(inspection, profile, ownerId);
-  const filename = `roof-survey-report-${(inspection.customerName || 'report')
-    .replace(/[^a-z0-9]+/gi, '-')
-    .toLowerCase()}.pdf`;
+  try {
+    const pdf = await renderInspectionPdf(inspection, profile, ownerId);
+    const filename = `roof-survey-report-${(inspection.customerName || 'report')
+      .replace(/[^a-z0-9]+/gi, '-')
+      .toLowerCase()}.pdf`;
 
-  return new NextResponse(pdf as unknown as BodyInit, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${filename}"`,
-    },
-  });
+    return new NextResponse(pdf as unknown as BodyInit, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err);
+    console.error('[pdf]', msg);
+    return new NextResponse(`PDF generation failed:\n\n${msg}`, {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
 }

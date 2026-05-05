@@ -142,12 +142,20 @@ function buildBrandedCoverPage(opts: {
   customerAddressLines: string[];
   co: CoFields;
   logoImg: string;
+  brandLogoImg: string;
 }): string {
-  const { title, dateStr, customerName, customerAddressLines, co, logoImg } = opts;
+  const { title, dateStr, customerName, customerAddressLines, co, logoImg, brandLogoImg } = opts;
   const customerLines = [customerName, ...customerAddressLines]
     .map((l) => `<div>${escapeHtml(l)}</div>`)
     .join('');
   const addr = co.addressLines.length ? co.addressLines : (co.address ? [co.address] : []);
+  // Brand logo (Roof Report) is shown at the top of every cover; the
+  // company's own logo (if uploaded) is reserved for the footer/header of
+  // subsequent sections. Company name renders below the brand logo.
+  void logoImg;
+  const companyHeader = co.nameLine1
+    ? `<div class="bcover-co-name">${escapeHtml(co.nameLine1)}${co.nameLine2 ? ' ' + escapeHtml(co.nameLine2) : ''}</div>`
+    : '';
   return `
   <div class="bcover">
     <div class="bcover-topband">
@@ -162,7 +170,8 @@ function buildBrandedCoverPage(opts: {
     </div>
 
     <div class="bcover-hero">
-      <div class="bcover-logo">${logoImg}</div>
+      <div class="bcover-logo">${brandLogoImg}</div>
+      ${companyHeader}
     </div>
 
     <div class="bcover-customer">
@@ -200,7 +209,8 @@ const BRANDED_COVER_CSS = `
   .bcover-stripes { display: flex; height: 8px; width: 100%; }
   .bcover-stripes span { flex: 1; display: block; height: 100%; }
   .bcover-hero { text-align: center; padding: 70px 40px 30px; }
-  .bcover-hero .bcover-logo img { max-width: 220px; height: auto; margin: 0 auto; display: block; }
+  .bcover-hero .bcover-logo img { max-width: 280px; height: auto; margin: 0 auto; display: block; }
+  .bcover-co-name { font-size: 22px; font-weight: 800; color: #0a2a4a; margin-top: 18px; letter-spacing: 0.3px; }
   .bcover-wordmark { font-size: 38px; font-weight: 800; color: #1a3c5e; margin-top: 14px; letter-spacing: 0.5px; }
   .bcover-customer { margin: 30px auto 0; width: 78%; min-height: 200px; border: 8px solid #0a2a4a; border-style: outset; padding: 36px 24px; text-align: center; font-size: 18px; line-height: 2.0; color: #222; font-weight: 600; box-shadow: inset 0 0 0 2px #1a3c5e, 4px 4px 10px rgba(0,0,0,0.18); }
   .bcover-spacer { min-height: 30px; }
@@ -334,6 +344,8 @@ export interface BuildOptions {
   photoDataUris: Map<string, string>;
   /** Optional company logo as a data: URI. */
   logoDataUri?: string | null;
+  /** Bundled Roof Report brand logo as a data: URI (shown on cover). */
+  brandLogoDataUri?: string | null;
   /** Optional satellite map image data URI. */
   satelliteDataUri?: string | null;
   /** Locale tag for date formatting (default en-IE). */
@@ -357,6 +369,9 @@ export function buildInspectionHtml(
   const logoImg = opts.logoDataUri
     ? `<img src="${opts.logoDataUri}" style="width:100%;max-width:300px;height:auto;display:block;margin-bottom:0;"/>`
     : `<div style="font-size:24px;font-weight:900;color:#1a3c5e;line-height:1.2;margin-bottom:0;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:14px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
+  const brandLogoImg = opts.brandLogoDataUri
+    ? `<img src="${opts.brandLogoDataUri}" style="max-width:280px;height:auto;display:block;margin:0 auto;"/>`
+    : `<div class="bcover-wordmark">Roof Report</div>`;
 
   const surveyDateStr = fmtDateOrdinal(inspection.date, localeTag);
   const reportDateStr = fmtDateOrdinal(new Date(), localeTag);
@@ -369,6 +384,7 @@ export function buildInspectionHtml(
     customerAddressLines: custLines,
     co,
     logoImg,
+    brandLogoImg,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -527,6 +543,9 @@ export function buildQuoteHtml(
   const logoHtml = opts.logoDataUri
     ? `<img src="${opts.logoDataUri}" style="max-width:220px;height:auto;display:block;margin:0 auto;"/>`
     : `<div style="font-size:20px;font-weight:900;color:#1a3c5e;">${escapeHtml(co.nameLine1)}<br/><span style="font-size:12px;letter-spacing:2px;">${escapeHtml(co.nameLine2)}</span></div>`;
+  const brandLogoImg = opts.brandLogoDataUri
+    ? `<img src="${opts.brandLogoDataUri}" style="max-width:280px;height:auto;display:block;margin:0 auto;"/>`
+    : `<div class="bcover-wordmark">Roof Report</div>`;
 
   const quoteAddressLines = (inspection.address || '').split(',').map((l) => l.trim()).filter(Boolean);
 
@@ -537,6 +556,7 @@ export function buildQuoteHtml(
     customerAddressLines: quoteAddressLines,
     co,
     logoImg: logoHtml,
+    brandLogoImg,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
