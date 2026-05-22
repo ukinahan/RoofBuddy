@@ -1,18 +1,8 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser, getCompanyProfile } from '@/lib/data';
 import { signOut } from '../actions';
 import GlobalSearch from '@/components/GlobalSearch';
-
-const NAV = [
-  { href: '/', label: 'Inspections' },
-  { href: '/pipeline', label: 'Pipeline' },
-  { href: '/calendar', label: 'Calendar' },
-  { href: '/map', label: 'Map' },
-  { href: '/customers', label: 'Customers' },
-  { href: '/warranty', label: 'Warranty' },
-  { href: '/sharing', label: 'Sharing' },
-];
+import SideNav from '@/components/SideNav';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -22,28 +12,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const companyName = profile?.shortName || profile?.name || 'Roof Inspector';
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="font-bold text-slate-800">
-              🏠 {companyName}
-            </Link>
-            <nav className="flex gap-1">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <GlobalSearch />
-            <span className="text-xs text-slate-500">{user.email}</span>
+    <div className="min-h-screen bg-slate-100 md:flex">
+      <SideNav companyName={companyName} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+          <div className="flex items-center gap-4 px-6 py-3">
+            <div className="flex-1">
+              <GlobalSearch />
+            </div>
+            <span className="hidden text-xs text-slate-500 sm:inline">{user.email}</span>
             <form action={signOut}>
               <button
                 type="submit"
@@ -53,9 +30,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </button>
             </form>
           </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+        </header>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }
