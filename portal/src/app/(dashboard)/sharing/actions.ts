@@ -6,23 +6,20 @@ import { createClient } from '@/lib/supabase/server';
 export type ShareRow = {
   member_user_id: string;
   member_email: string;
-  role: 'viewer' | 'editor';
+  role: 'viewer' | 'editor' | 'admin';
   created_at: string;
 };
 
 export async function listShares(): Promise<{ shares: ShareRow[]; migrationMissing: boolean; error?: string }> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('my_shares')
-    .select('member_user_id, member_email, role, created_at')
-    .order('created_at', { ascending: false });
+  const { data, error } = await supabase.rpc('list_my_shares');
   if (error) {
-    // Detect "relation does not exist" / missing object errors so the page
+    // Detect "function does not exist" / missing object errors so the page
     // can show a friendly "run the migration" message instead of crashing.
     const msg = error.message ?? '';
     const missing =
-      /my_shares/i.test(msg) &&
-      (/does not exist/i.test(msg) || /not found/i.test(msg) || error.code === '42P01' || error.code === 'PGRST205');
+      /(list_my_shares|my_shares)/i.test(msg) &&
+      (/does not exist/i.test(msg) || /not found/i.test(msg) || error.code === '42883' || error.code === '42P01' || error.code === 'PGRST202' || error.code === 'PGRST205');
     if (missing) return { shares: [], migrationMissing: true, error: msg };
     return { shares: [], migrationMissing: false, error: msg };
   }
@@ -31,7 +28,7 @@ export async function listShares(): Promise<{ shares: ShareRow[]; migrationMissi
 
 export async function inviteShare(formData: FormData): Promise<{ ok: boolean; status?: string; error?: string }> {
   const email = String(formData.get('email') ?? '').trim();
-  const role = String(formData.get('role') ?? 'editor') as 'viewer' | 'editor';
+  const role = String(formData.get('role') ?? 'editor') as 'viewer' | 'editor' | 'admin';
   if (!email) return { ok: false, error: 'Email is required.' };
 
   const supabase = await createClient();

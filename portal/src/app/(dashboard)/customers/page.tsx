@@ -9,7 +9,15 @@ export default async function CustomersPage() {
     <div>
       <div className="mb-6 flex items-baseline justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Customers</h1>
-        <span className="text-sm text-slate-500">{customers.length} total</span>
+        <div className="flex items-center gap-3">
+          <a
+            href="/api/export/customers"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Export CSV
+          </a>
+          <span className="text-sm text-slate-500">{customers.length} total</span>
+        </div>
       </div>
 
       {customers.length === 0 ? (

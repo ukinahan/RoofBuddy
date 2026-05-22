@@ -26,7 +26,21 @@ export default async function InspectionsPage() {
     <div>
       <div className="mb-6 flex items-baseline justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Inspections</h1>
-        <span className="text-sm text-slate-500">{inspections.length} total</span>
+        <div className="flex items-center gap-3">
+          <a
+            href="/api/export/inspections"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Inspections CSV
+          </a>
+          <a
+            href="/api/export/quotes"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Quotes CSV
+          </a>
+          <span className="text-sm text-slate-500">{inspections.length} total</span>
+        </div>
       </div>
 
       {inspections.length === 0 ? (

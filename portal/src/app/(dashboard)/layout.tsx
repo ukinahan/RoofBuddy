@@ -2,10 +2,15 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser, getCompanyProfile } from '@/lib/data';
 import { signOut } from '../actions';
+import GlobalSearch from '@/components/GlobalSearch';
 
 const NAV = [
   { href: '/', label: 'Inspections' },
+  { href: '/pipeline', label: 'Pipeline' },
+  { href: '/calendar', label: 'Calendar' },
+  { href: '/map', label: 'Map' },
   { href: '/customers', label: 'Customers' },
+  { href: '/warranty', label: 'Warranty' },
   { href: '/sharing', label: 'Sharing' },
 ];
 
@@ -37,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <GlobalSearch />
             <span className="text-xs text-slate-500">{user.email}</span>
             <form action={signOut}>
               <button

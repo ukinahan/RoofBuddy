@@ -5,7 +5,7 @@ import { inviteShare } from './actions';
 
 export default function SharingForm() {
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'editor' | 'viewer'>('editor');
+  const [role, setRole] = useState<'admin' | 'editor' | 'viewer'>('editor');
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; status?: string; error?: string } | null>(null);
 
@@ -42,11 +42,12 @@ export default function SharingForm() {
           <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Role</span>
           <select
             value={role}
-            onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
+            onChange={(e) => setRole(e.target.value as 'admin' | 'editor' | 'viewer')}
             className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
           >
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
+            <option value="admin">Admin — full access incl. sharing</option>
+            <option value="editor">Editor — read & edit</option>
+            <option value="viewer">Viewer — read only</option>
           </select>
         </label>
         <button

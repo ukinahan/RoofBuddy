@@ -34,12 +34,21 @@ export async function sendInspectionEmail(formData: FormData): Promise<{ ok: boo
     .toLowerCase()}.pdf`;
 
   const resend = new Resend(apiKey);
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL || 'https://admin.roofinspector.app';
+  const trackingPixel = `<img src="${appUrl}/api/track/${id}?k=email_open" width="1" height="1" style="display:none" alt="" />`;
+  const textBody = body || `Please find attached the roof inspection report for ${inspection.address}.`;
+  const htmlBody =
+    textBody.split('\n').map((l) => `<p style="margin:0 0 8px">${escape(l)}</p>`).join('') +
+    trackingPixel;
+
   const { error } = await resend.emails.send({
     from,
     to,
     cc: cc ? cc.split(/[,;]+/).map((s) => s.trim()).filter(Boolean) : undefined,
     subject: subject || `Roof inspection report — ${inspection.customerName}`,
-    text: body || `Please find attached the roof inspection report for ${inspection.address}.`,
+    text: textBody,
+    html: htmlBody,
     attachments: [
       {
         filename,
@@ -50,4 +59,12 @@ export async function sendInspectionEmail(formData: FormData): Promise<{ ok: boo
 
   if (error) return { ok: false, error: `${error.name ?? 'error'}: ${error.message}` };
   return { ok: true };
+}
+
+function escape(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

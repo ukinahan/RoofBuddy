@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getInspection, getCompanyProfile, getCurrentUser } from '@/lib/data';
 import { renderInspectionPdf } from '@/lib/pdf';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,6 +30,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const filename = `roof-survey-report-${(inspection.customerName || 'report')
       .replace(/[^a-z0-9]+/gi, '-')
       .toLowerCase()}.pdf`;
+
+    // Log a tracking event so the portal can show "PDF viewed" timestamps.
+    try {
+      const sb = await createClient();
+      await sb.rpc('log_tracking_event', { p_inspection_id: id, p_kind: 'pdf_view' });
+    } catch { /* tracking must never break the response */ }
 
     return new NextResponse(pdf as unknown as BodyInit, {
       headers: {

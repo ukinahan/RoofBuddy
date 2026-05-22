@@ -2,6 +2,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getInspection, signPhotoUrl } from '@/lib/data';
 import InspectionEditor from './editor';
+import InspectionMeta from './meta';
+import ActivityPanel from './activity-panel';
+import type { PipelineStage } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +37,15 @@ export default async function InspectionDetailPage({
           ← Back to inspections
         </Link>
       </div>
-      <InspectionEditor inspection={insp} photoUrls={photoUrls} />
+      <div className="space-y-6">
+        <InspectionMeta
+          id={insp.id}
+          initialStage={(insp.pipelineStage ?? 'inspected') as PipelineStage}
+          initialScheduledAt={insp.scheduledAt ?? null}
+        />
+        <InspectionEditor inspection={insp} photoUrls={photoUrls} />
+        <ActivityPanel inspectionId={insp.id} />
+      </div>
     </div>
   );
 }
