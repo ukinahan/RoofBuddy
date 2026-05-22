@@ -1,5 +1,6 @@
 import { listInspectionSummaries } from '@/lib/features';
 import CalendarGrid from './grid';
+import FeedSubscribe from './feed-subscribe';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,7 @@ export default async function CalendarPage({
         </span>
       </div>
       <CalendarGrid items={items} month={ym} />
+      <FeedSubscribe />
     </div>
   );
 }
