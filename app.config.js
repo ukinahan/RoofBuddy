@@ -8,7 +8,7 @@
  */
 module.exports = () => ({
   expo: {
-    name: 'Roof Report',
+    name: 'A&A Roof',
     slug: 'roof-inspector',
     scheme: 'roofreport',
     version: '1.5.0',
@@ -19,7 +19,7 @@ module.exports = () => ({
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
-      backgroundColor: '#1a3c5e',
+      backgroundColor: '#ffffff',
     },
     ios: {
       supportsTablet: true,
@@ -40,7 +40,7 @@ module.exports = () => ({
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
       },
-      buildNumber: '28',
+      buildNumber: '33',
     },
     android: {
       adaptiveIcon: {

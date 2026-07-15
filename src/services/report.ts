@@ -541,9 +541,10 @@ async function buildHtml(inspection: Inspection): Promise<string> {
     .photo-block { page-break-inside: avoid; break-inside: avoid; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #e8e8e8; }
     .photo-block:last-child { border-bottom: none; margin-bottom: 0; }
     .conclusion-block { page-break-inside: avoid; break-inside: avoid; margin-top: 24px; padding-top: 18px; border-top: 1px solid #ccc; }
-    .photo-wrap { margin-bottom: 16px; }
-    .pic-container { position: relative; width: 80%; margin: 0 auto; }
-    .pic-img { display: block; width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
+    .photo-wrap { margin-bottom: 16px; text-align: center; }
+    /* A4 printable height ≈ 277mm; leave ~85mm for title/meta/severity/notes/margins so each photo block fits on one page. */
+    .pic-container { position: relative; display: inline-block; max-width: 100%; margin: 0 auto; }
+    .pic-img { display: block; max-width: 100%; max-height: 180mm; width: auto; height: auto; object-fit: contain; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.15); }
     .drawing-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
     .pic-missing { color: #ccc; padding: 60px 10px; font-size: 13px; font-style: italic; text-align: center; background: #fafafa; }
     .notes-box { background: #f5f5f5; border-left: 4px solid #1a3c5e; padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0; font-size: 13px; }
